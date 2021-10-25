@@ -1,6 +1,6 @@
 # Checkmk update agent [(Download the MKP package)](/../../../-/raw/master/agent_checkmk_download.mkp "Download MKP package")
 
-Monitors checkmk update status
+##### This special agent will check once a day whether a new Checkmk version is available. You need to configure the special agent "checkmk_downloads" to get this check to work (Setup -> Agents -> Other integrations -> Checkmk Download)
 ---
 Check Info:
 
@@ -20,7 +20,6 @@ Check Info:
 ---
 * *ToDo*:
     * WATO rules
-    * Cache mode for agent
     * remove inventory
 ---
 Sample output
