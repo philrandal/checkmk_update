@@ -24,14 +24,10 @@ Write checkmk_download_ sections containing JSON formatted results from https://
 import sys
 import argparse
 import logging
-import json
 from typing import Optional, Sequence
-from time import asctime
 import requests
 import os
 import time
-
-from cmk.special_agents.utils import vcrtrace
 
 
 def parse_arguments(argv: Sequence[str]) -> argparse.Namespace:
@@ -46,6 +42,8 @@ def parse_arguments(argv: Sequence[str]) -> argparse.Namespace:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> None:
+    agent_version = '2021-10-25.v.0.2'
+    agent_os = 'Linux'
 
     def setup_logging(verbose: bool) -> None:
         logging.basicConfig(level={
@@ -99,10 +97,9 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     print(downloads)
     print('<<<checkmk_update:sep(0)>>>\n')
     print(downloads)
-
-
-
-
+    print('<<<check_mk>>>')
+    print(f'Version: {agent_version}')
+    print(f'AgentOS: {agent_os}')
 
 
 if __name__ == '__main__':
