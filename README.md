@@ -18,8 +18,8 @@ Check Info:
 ---
 * *perfdata*: none
 ---
-ToDo: 
-    * WATO file
+* *ToDo*:
+    * WATO rules
     * Cache mode for agent
     * remove inventory
 ---
