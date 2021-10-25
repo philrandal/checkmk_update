@@ -18,6 +18,11 @@ Check Info:
 ---
 * *perfdata*: none
 ---
+ToDo: 
+    * WATO file
+    * Cache mode for agent
+    * remove inventory
+---
 Sample output
 
 ![sample output](/doc/sample.png?raw=true "sample output")
