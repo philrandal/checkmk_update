@@ -28,6 +28,8 @@ import json
 from typing import Optional, Sequence
 from time import asctime
 import requests
+import os
+import time
 
 from cmk.special_agents.utils import vcrtrace
 
@@ -55,29 +57,52 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
         logging.getLogger('vcr').setLevel(logging.WARN)
 
+    def get_dat_from_checkmk():
+        print('download from cmk')
+        response = requests.get(
+            url=url,
+            # auth=HTTPBasicAuth(args.username, args.password),
+            timeout=args.timeout,
+            # verify=not args.no_cert_check,
+            # headers=headers,
+        )
+        if response.status_code == 200:
+            downloads = response.text
+            with open(cache_file, 'w') as f:
+                f.write(downloads)
+            return downloads
+
     if argv is None:
         argv = sys.argv[1:]
 
     args = parse_arguments(argv)
     setup_logging(args.verbose)
     logging.debug('cmd: argv=%r, turned into: %r', argv, args.__dict__)
-
+    omd_root = os.environ['OMD_ROOT']
+    cache_file = omd_root + '/tmp/check_mk/cache/cmk_downloads'
     url = 'https://checkmk.com/download'
 
-    response = requests.get(
-        url=url,
-        # auth=HTTPBasicAuth(args.username, args.password),
-        timeout=args.timeout,
-        # verify=not args.no_cert_check,
-        # headers=headers,
-    )
-    if response.status_code == 200:
-        downloads = response.text
-        downloads = downloads[downloads.find(':downloads=') + 12:downloads.find("'", downloads.find(':downloads=') + 12)]
-        print('<<<inv_checkmk_downloads:sep(0)>>>\n')
-        print(downloads)
-        print('<<<checkmk_update:sep(0)>>>\n')
-        print(downloads)
+    if os.path.isfile(cache_file):
+        now_time = int(time.time())
+        modify_time = int(os.path.getmtime(cache_file))
+        if (now_time - modify_time) < 86400:
+            print('read from cache')
+            with open(cache_file, 'r') as f:
+                downloads = f.read()
+        else:
+            downloads = get_dat_from_checkmk()
+    else:
+        downloads = get_dat_from_checkmk()
+
+    downloads = downloads[downloads.find(':downloads=') + 12:downloads.find("'", downloads.find(':downloads=') + 12)]
+    print('<<<inv_checkmk_downloads:sep(0)>>>\n')
+    print(downloads)
+    print('<<<checkmk_update:sep(0)>>>\n')
+    print(downloads)
+
+
+
+
 
 
 if __name__ == '__main__':
