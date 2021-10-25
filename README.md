@@ -12,9 +12,9 @@ Check Info:
     * if your Checkmk release (base version) could not be detected
 
     **critical**: 
-    * if your Checkmk version is no longer available\
+    * if your Checkmk version is no longer available
 ---
-* *wato*: none yet
+* *wato*: none
 ---
 * *perfdata*: none
 ---
