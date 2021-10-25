@@ -14,17 +14,20 @@ Check Info:
     **critical**: 
     * if your Checkmk version is no longer available
 ---
-* *wato*: none
+* *wato*: [(see WATO options)](/../../../-/raw/master/doc/wato.png "see WATO options")
 ---
 * *perfdata*: none
 ---
 * *ToDo*:
-    * WATO rules
     * remove inventory
 ---
 Sample output
 
 ![sample output](/doc/sample.png?raw=true "sample output")
+
+WATO options
+
+![WATO options](/doc/wato.png?raw=true "WATO options")
 
 Sample inventory
 ![sample inventory](/doc/sample_inventory.png?raw=true "sample inventory")
