@@ -1,4 +1,4 @@
-# Checkmk update agent [(Download the MKP package)](/../../../-/raw/master/{agent_checkmk_download}.mkp "Download MKP package")
+# Checkmk update agent [(Download the MKP package)](/../../../-/raw/master/agent_checkmk_download.mkp "Download MKP package")
 
 Monitors checkmk update status
 ---
