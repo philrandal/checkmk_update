@@ -69,7 +69,7 @@ def check_checkmk_update(params, section) -> CheckResult:
         stable_base = '.'.join(stable.split('.')[:2])
 
         if float(cmk_base_version) < float(old_base_version):
-            yield Result(state=State(params['state_on_unsuported']), notice=f'You are using an old version, Upgrade at least to old stable {old_base_version}')
+            yield Result(state=State(params['state_on_unsupported']), notice=f'You are using an old version, Upgrade at least to old stable {old_base_version}')
         elif cmk_base_version == old_base_version:
             if checkmk_version != olstable:
                 yield Result(state=State(params['state_not_latest_base']), notice=f'There is an update for your version available, old stable: {olstable}')
@@ -100,9 +100,9 @@ register.check_plugin(
     discovery_function=discovery_checkmk_update,
     check_function=check_checkmk_update,
     check_default_parameters={
-        'state_on_unsuported': 2,
+        'state_on_unsupported': 2,
         'state_not_latest_base': 1,
-        'state_unkown': 1,
+        'state_unknown': 1,
     },
     check_ruleset_name='checkmk_update',
 )
