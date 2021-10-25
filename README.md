@@ -18,9 +18,6 @@ Check Info:
 ---
 * *perfdata*: none
 ---
-#### Want to contribute?
-Nice ;-) Have a look at the [contribution guidelines](CONTRIBUTING.md "Contributing")
----
 Sample output
 
 ![sample output](/doc/sample.png?raw=true "sample output")
