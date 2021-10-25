@@ -1,27 +1,22 @@
-# Cisco NTP [(Download the MKP package)](/../../../-/raw/master/{REPLACE_WITH_PACKAGE_NAME}.mkp "Download MKP package")
+# Checkmk update agent [(Download the MKP package)](/../../../-/raw/master/{agent_checkmk_download}.mkp "Download MKP package")
 
-Monitors status of C{REPLACE_WITH_PACKAGE_TITLE}
+Monitors checkmk update status
 ---
 Check Info:
 
-* *service*: creates the service **_NTP status_** and one service **_NTP {item}_** for each NTP association, with the association name/ip-address as item
+* *service*: creates the service **_Checkmk Update_**
 ---
 * *state*: \
     **warning**: 
-    * if NTP refID is in AUTH, AUTO, CRYPT, DENY, INIT, LOCL, RATE, STEP, TIME or XFAC (see WATO)
-    * if Error counter > 0 (see WATO)
+    * if your Checkmk version is older than the available checkmk version for your release
+    * if your Checkmk release (base version) could not be detected
 
-    **critical**/**warning**: 
-    * if offset or stratum outside the configured levels (see WATO)\
+    **critical**: 
+    * if your Checkmk version is no longer available\
 ---
-* *wato*: [(see WATO options)](/../../../-/raw/master/doc/wato.png "see sample screenshot")
+* *wato*: none yet
 ---
-* *perfdata (if avilable)*: 
-    * Offset (s)
-    * Delay (s)
-    * Jitter (s)
-    * Protocol errors (/s)
-    * Version errors (/s)
+* *perfdata*: none
 ---
 #### Want to contribute?
 Nice ;-) Have a look at the [contribution guidelines](CONTRIBUTING.md "Contributing")
@@ -30,6 +25,6 @@ Sample output
 
 ![sample output](/doc/sample.png?raw=true "sample output")
 
-WATO
+Sample inventory
+![sample inventory](/doc/sample_inventory.png?raw=true "sample inventory")
 
-![WATO options](/doc/wato.png?raw=true "WATO options")
