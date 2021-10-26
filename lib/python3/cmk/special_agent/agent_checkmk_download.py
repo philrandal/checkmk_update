@@ -35,14 +35,15 @@ def parse_arguments(argv: Sequence[str]) -> argparse.Namespace:
     Parse arguments needed to construct an URL and for connection conditions
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--host', required=True, help='Host to query')
+    parser.add_argument('--host', help='Host to query')
     parser.add_argument('--timeout', '-t', type=float, default=60, help='API call timeout in seconds', )
     parser.add_argument('--verbose', '-v', action='count', default=0)
     return parser.parse_args(argv)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> None:
-    agent_version = '2021-10-25.v.0.2'
+    agent_version = 'v.0.2'
+    agent_build = '2021-10-25'
     agent_os = 'Linux'
 
     def setup_logging(verbose: bool) -> None:
@@ -56,13 +57,10 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         logging.getLogger('vcr').setLevel(logging.WARN)
 
     def get_dat_from_checkmk():
-        print('download from cmk')
         response = requests.get(
             url=url,
-            # auth=HTTPBasicAuth(args.username, args.password),
             timeout=args.timeout,
             # verify=not args.no_cert_check,
-            # headers=headers,
         )
         if response.status_code == 200:
             downloads = response.text
@@ -84,7 +82,6 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         now_time = int(time.time())
         modify_time = int(os.path.getmtime(cache_file))
         if (now_time - modify_time) < 86400:
-            print('read from cache')
             with open(cache_file, 'r') as f:
                 downloads = f.read()
         else:
@@ -97,9 +94,12 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     print(downloads)
     print('<<<checkmk_update:sep(0)>>>\n')
     print(downloads)
-    print('<<<check_mk>>>')
-    print(f'Version: {agent_version}')
-    print(f'AgentOS: {agent_os}')
+    # print('<<<check_mk>>>')
+    # print(f'Version: {agent_version}')
+    # print(f'AgentOS: {agent_os}')
+    # print(f'BuildDate: {agent_build}')
+    # print(f'Hostname: {args.host}')
+    # print(f'Architecture: 64bit')
 
 
 if __name__ == '__main__':
