@@ -9,7 +9,7 @@
 #
 # Checkmk update status
 #
-
+# 2021-11-04: fixed missing "versions" key in "release" section
 
 # sample agent output
 #
@@ -36,11 +36,12 @@ def parse_checkmk_update(string_table):
     versions = {}
     agentoutput = json.loads(string_table[0][0])
     versions['latestStable'] = agentoutput['latestStable']
-    for relesae in agentoutput.keys():
-        if relesae not in ['latestStable', 'virt']:
-            for version in agentoutput[relesae]['versions'].keys():
-                status = agentoutput[relesae]['versions'][version]['class']
-                versions[status] = version
+    for release in agentoutput.keys():
+        if release not in ['latestStable', 'virt']:
+            if agentoutput[release].get('versions'):
+                for version in agentoutput[release]['versions'].keys():
+                    status = agentoutput[release]['versions'][version]['class']
+                    versions[status] = version
     return versions
 
 
