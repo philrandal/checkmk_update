@@ -9,7 +9,7 @@
 #
 # Inventory of Checkmk downloads
 #
-
+# 2021-11-17: added checkmk appliance downloads
 
 # sample agent output
 #
@@ -30,27 +30,41 @@ def parse_inv_checkmk_downloads(string_table) -> List:
     agentoutput = json.loads(string_table[0][0])
     nodes = []
     for relesae in agentoutput.keys():
-        if relesae not in ['latestStable', 'virt']:
+        if relesae not in ['latestStable']:  # , 'virt'
             product = agentoutput[relesae]['label']
             for version in agentoutput[relesae]['versions'].keys():
                 status = agentoutput[relesae]['versions'][version]['class']
                 dir_name = agentoutput[relesae]['versions'][version]['dirname']
                 for distro in agentoutput[relesae]['versions'][version]['distros'].keys():
-                    if distro not in ['docker', 'src']:
-                        for distro_version in agentoutput[relesae]['versions'][version]['distros'][distro]:
-                            name = agentoutput[relesae]['versions'][version]['distros'][distro][distro_version]['name']
-                            hash = agentoutput[relesae]['versions'][version]['distros'][distro][distro_version]['hash']
+                    if distro not in ['docker', 'src', 'changelog']:
+                        if relesae != 'virt':
+                            for distro_version in agentoutput[relesae]['versions'][version]['distros'][distro]:
+                                name = agentoutput[relesae]['versions'][version]['distros'][distro][distro_version]['name']
+                                hash = agentoutput[relesae]['versions'][version]['distros'][distro][distro_version]['hash']
+                                nodes.append({
+                                    'product': product,
+                                    'version': version,
+                                    'platform': distro,
+                                    'os_version': distro_version,
+                                    'status': status,
+                                    'name': name,
+                                    'hash': hash,
+                                    'url': f'https://download.checkmk.com/checkmk/{dir_name}/{name}'
+                                })
+                        else:
+                            name = agentoutput[relesae]['versions'][version]['distros'][distro]['name']
+                            hash = agentoutput[relesae]['versions'][version]['distros'][distro]['hash']
                             nodes.append({
-                                'product': product,
-                                'version': version,
-                                'platform': distro,
-                                'os_version': distro_version,
-                                'status': status,
-                                'name': name,
-                                'hash': hash,
-                                'url': f'https://download.checkmk.com/checkmk/{dir_name}/{name}'
-                            })
-                    else:
+                                    'product': product,
+                                    'version': version,
+                                    'platform': distro,
+                                    'os_version': 'N/A',
+                                    'status': status,
+                                    'name': name,
+                                    'hash': hash,
+                                    'url': f'https://download.checkmk.com/checkmk/{dir_name}/{name}'
+                                })
+                    elif distro not in ['changelog']:
                         name = agentoutput[relesae]['versions'][version]['distros'][distro]['name']
                         hash = agentoutput[relesae]['versions'][version]['distros'][distro]['hash']
                         nodes.append({
@@ -63,7 +77,6 @@ def parse_inv_checkmk_downloads(string_table) -> List:
                             'hash': hash,
                             'url': f'https://download.checkmk.com/checkmk/{dir_name}/{name}'
                         })
-
     return nodes
 
 

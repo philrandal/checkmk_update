@@ -10,6 +10,7 @@
 # Checkmk update status
 #
 # 2021-11-04: fixed missing "versions" key in "release" section
+# 2021-11-17: added checkmk appliance version
 
 # sample agent output
 #
@@ -37,10 +38,12 @@ def parse_checkmk_update(string_table):
     agentoutput = json.loads(string_table[0][0])
     versions['latestStable'] = agentoutput['latestStable']
     for release in agentoutput.keys():
-        if release not in ['latestStable', 'virt']:
+        if release not in ['latestStable']:  # , 'virt'
             if agentoutput[release].get('versions'):
                 for version in agentoutput[release]['versions'].keys():
                     status = agentoutput[release]['versions'][version]['class']
+                    if release == 'virt':
+                        status = 'virt'
                     versions[status] = version
     return versions
 
@@ -59,9 +62,10 @@ def check_checkmk_update(params, section) -> CheckResult:
     daily_master = False
     olstable = section["oldstable"]
     stable = section['stable']
-    latestStable = section["latestStable"]
+    latestStable = section['latestStable']
+    appliance = section['virt']
 
-    yield Result(state=State.OK, summary=f'Your Checkmk version: {checkmk_version}, on {platform} {os}')
+    yield Result(state=State.OK, summary=f'Checkmk version: {checkmk_version}, on {platform} {os}')
     if re.match(r'\d\d\d\d\.\d\d\.\d\d$', checkmk_version):
         daily_master = True
     else:
@@ -73,12 +77,12 @@ def check_checkmk_update(params, section) -> CheckResult:
             yield Result(state=State(params['state_on_unsupported']), notice=f'You are using an old version, Upgrade at least to old stable {old_base_version}')
         elif cmk_base_version == old_base_version:
             if checkmk_version != olstable:
-                yield Result(state=State(params['state_not_latest_base']), notice=f'There is an update for your version available, old stable: {olstable}')
+                yield Result(state=State(params['state_not_latest_base']), notice=f'Update available, old stable: {olstable}')
             else:
                 yield Result(state=State.OK, summary=f'In line with old stable, You wight upgrade to latest sable: {latestStable}')
         elif cmk_base_version == stable_base:
             if checkmk_version != stable:
-                yield Result(state=State(params['state_not_latest_base']), notice=f'There is an update for your version available, stable: {stable}')
+                yield Result(state=State(params['state_not_latest_base']), notice=f'Update available, stable: {stable}')
             else:
                 yield Result(state=State.OK, summary=f'In line with stable')
         else:
@@ -88,6 +92,7 @@ def check_checkmk_update(params, section) -> CheckResult:
         yield Result(state=State.OK, notice=f'Latest stable: {latestStable}')
     yield Result(state=State.OK, notice=f'Stable: {stable}')
     yield Result(state=State.OK, notice=f'Old stable: {olstable}')
+    yield Result(state=State.OK, notice=f'Checkmk Appliance: {appliance}')
 
 
 register.agent_section(
