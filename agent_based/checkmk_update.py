@@ -110,9 +110,11 @@ def check_checkmk_update(params, section) -> CheckResult:
 
     # add patch level as metric to have a litle release history
     if latest_stable != stable:
-        yield Metric(value=int(latest_stable.split('p')[-1]), name='latest_stable_patch',)
-    yield Metric(value=int(stable.split('p')[-1]), name='stable_patch',)
-    yield Metric(value=int(old_stable.split('p')[-1]), name='old_stable_patch',)
+        yield Metric(value=int(latest_stable.split('p')[-1]), name='latest_stable_patch', boundaries=(0, None))
+    yield Metric(value=int(stable.split('p')[-1]), name='stable_patch', boundaries=(0, None))
+    yield Metric(value=int(old_stable.split('p')[-1]), name='old_stable_patch', boundaries=(0, None))
+    yield Metric(value=int(appliance.split('.')[-1]), name='appliance_patch', boundaries=(0, None))
+
 
 
 register.agent_section(

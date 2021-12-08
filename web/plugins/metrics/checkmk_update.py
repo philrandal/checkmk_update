@@ -36,27 +36,33 @@ metric_info['stable_patch'] = {
     'unit': 'count',
     'color': '41/a',
 }
-
+metric_info['appliance_patch'] = {
+    'title': _('Appliance'),
+    'unit': 'count',
+    'color': '11/b',
+}
 
 graph_info['checkmk_update_patch_level'] = {
     'title': _('CheckMK patch level release history'),
     'metrics': [
-        ('latest_stable_patch', 'line'),
+        ('appliance_patch', '-area'),
+        ('latest_stable_patch', '-area'),
         ('old_stable_patch', 'area'),
         ('stable_patch', 'area'),
     ],
     'optional_metrics': ['latest_stable_patch'],
+    'range': (0, 50),
 }
 
 # perfometer_info.append(('stacked', [
 #     {
 #         'type': 'linear',
 #         'segments': ['stable_patch'],
-#         'total': 100,
+#         'total': 50,
 #     },
 #     {
 #         'type': 'linear',
 #         'segments': ['old_stable_patch'],
-#         'total': 100,
+#         'total': 50,
 #     }
 # ]))
