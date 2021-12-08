@@ -1,6 +1,6 @@
 # Checkmk update agent [(Download the MKP package)](/../../../-/raw/master/agent_checkmk_download.mkp "Download MKP package")
-
-##### This special agent will check once a day whether a new Checkmk version is available. To use this check you need to configure the special agent "checkmk_downloads" (Setup -> Agents -> Other integrations -> Checkmk Download) on your Checkmk server. The agent reads its data form the Checkmk download URL **https://checkmk.com/download**.
+---
+This special agent will check once a day if a new Checkmk version is available. To use this check you need to configure the special agent "checkmk_downloads" (Setup -> Agents -> Other integrations -> Checkmk Download) on your Checkmk server. The agent reads its data form the Checkmk download URL **https://checkmk.com/download**.
 ---
 Check Info:
 
