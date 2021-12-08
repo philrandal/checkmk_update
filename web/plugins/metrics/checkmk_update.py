@@ -28,13 +28,13 @@ metric_info['latest_stable_patch'] = {
 metric_info['old_stable_patch'] = {
     'title': _('Old stable'),
     'unit': 'count',
-    'color': '21/a',
+    'color': '31/a',
 }
 
 metric_info['stable_patch'] = {
     'title': _('Stable'),
     'unit': 'count',
-    'color': '31/a',
+    'color': '41/a',
 }
 
 
@@ -48,15 +48,15 @@ graph_info['checkmk_update_patch_level'] = {
     'optional_metrics': ['latest_stable_patch'],
 }
 
-perfometer_info.append(('stacked', [
-    {
-        'type': 'linear',
-        'segments': ['stable_patch'],
-        'total': 100,
-    },
-    {
-        'type': 'linear',
-        'segments': ['old_stable_patch'],
-        'total': 100,
-    }
-]))
+# perfometer_info.append(('stacked', [
+#     {
+#         'type': 'linear',
+#         'segments': ['stable_patch'],
+#         'total': 100,
+#     },
+#     {
+#         'type': 'linear',
+#         'segments': ['old_stable_patch'],
+#         'total': 100,
+#     }
+# ]))

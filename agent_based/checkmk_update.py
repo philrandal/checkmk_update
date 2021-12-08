@@ -9,6 +9,7 @@
 #
 # Checkmk update status
 #
+# 2021-10-26: minor fixes (removed unused prints)
 # 2021-11-04: fixed missing "versions" key in "release" section
 # 2021-11-17: added checkmk appliance version
 # 2021-12-07: added metrics for patch release history (a little fun) maybe one day of (cache, only checks once a day)
