@@ -5,7 +5,7 @@ This special agent will check once a day if a new Checkmk version is available. 
 
 THX to baris.leenders[at]tribe29 for providing the data as JSON download and martin.hirschvogel[at]tribe29 for supporting the development of this plugin
 
-**NOTE**: before updating from the old agent_checkmk_download agent, remove the agent_checkmk_download package completely (rules and package) please.
+**NOTE**: before updating from the old agent_checkmk_download agent, remove the agent_checkmk_download package completely (rules and package) please. You also need to delete the `~/tmp/check_mk/cache/cmk_downloads` cache file.
 
 ---
 Check Info:
