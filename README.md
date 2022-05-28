@@ -1,6 +1,12 @@
-# Checkmk update agent [(Download the MKP package)](/../../../-/raw/master/agent_checkmk_download.mkp "Download MKP package")
+# Checkmk update agent [(Download the MKP package)](/../../../-/raw/master/agent_checkmk_update.mkp "Download MKP package")
 ---
-This special agent will check once a day if a new Checkmk version is available. To use this check you need to configure the special agent "checkmk_downloads" (Setup -> Agents -> Other integrations -> Checkmk Download) on your Checkmk server. The agent reads its data form the Checkmk download URL **https://checkmk.com/download**.
+
+This special agent will check once a day if a new Checkmk version is available. To use this check you need to configure the special agent "checkmk_update" (Setup -> Agents -> Other integrations -> Checkmk update) on your Checkmk server. The agent reads its data form the Checkmk download page **https://download.checkmk.com/stable_downloads.json**.
+
+THX to baris.leenders[at]tribe29 for providing the data as JSON download and martin.hirschvogel[at]tribe29 for supporting the development of this plugin
+
+**NOTE**: before updating from the old checkmk_download agent, remove the checkmk_download package completely (rules and package) please.
+
 ---
 Check Info:
 
@@ -16,10 +22,8 @@ Check Info:
 ---
 * *wato*: [(see WATO options)](/../../../-/raw/master/doc/wato.png "see WATO options")
 ---
-* *perfdata*: none
----
-* *ToDo*:
-    * remove inventory
+* *perfdata*: Verion history
+
 ---
 Sample output
 
@@ -29,6 +33,4 @@ WATO options
 
 ![WATO options](/doc/wato.png?raw=true "WATO options")
 
-Sample inventory
-![sample inventory](/doc/sample_inventory.png?raw=true "sample inventory")
 
