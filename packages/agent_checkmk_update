@@ -10,7 +10,7 @@
  'files': {'agent_based': ['checkmk_update.py'],
            'agents': ['special/agent_checkmk_update'],
            'checks': ['agent_checkmk_update'],
-           'lib': ['check_mk/special_agent/agent_checkmk_update.py'],
+           'lib': ['check_mk/special_agents/agent_checkmk_update.py'],
            'web': ['plugins/metrics/checkmk_update.py',
                    'plugins/wato/agent_checkmk_update.py',
                    'plugins/wato/checkmk_update.py']},
