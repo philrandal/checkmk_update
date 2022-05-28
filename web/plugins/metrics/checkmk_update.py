@@ -16,7 +16,6 @@ from cmk.gui.plugins.metrics import (
     metric_info,
     graph_info,
     perfometer_info
-
 )
 
 metric_info['latest_stable_patch'] = {
@@ -50,7 +49,10 @@ graph_info['checkmk_update_patch_level'] = {
         ('old_stable_patch', 'area'),
         ('stable_patch', 'area'),
     ],
-    'optional_metrics': ['latest_stable_patch'],
+    'optional_metrics': [
+        'latest_stable_patch',
+        'appliance_patch'
+    ],
     'range': (0, 50),
 }
 
