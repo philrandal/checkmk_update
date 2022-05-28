@@ -253,34 +253,54 @@ def check_checkmk_update(params, section: Dict[str, Any]) -> CheckResult:
     distro_code = _get_distro_code()
     download_url_base = 'https://download.checkmk.com/checkmk'
 
-    # get versions
-    stable_versions = []
-    old_stable_versions = []
-    latest_stable_branch = None
-    latest_old_stable_branch = None
+    editions = {
+        'cre': 'Checkmk Raw Edition',
+        'cfe': 'Checkmk Enterprise Free Edition',
+        'cee': 'Checkmk Enterprise Standard Edition',
+        'cme': 'Checkmk Enterprise Managed Services Edition',
+    }
+
+    classes = {
+        'stable': {
+            'branches': [],
+            'latest_branch': None,
+            'latest_version': None,
+        },
+        'oldstable': {
+            'branches': [],
+            'latest_branch': None,
+            'latest_version': None,
+        },
+        'beta': {
+            'branches': [],
+            'latest_branch': None,
+            'latest_version': None,
+        },
+        'innovation': {
+            'branches': [],
+            'latest_branch': None,
+            'latest_version': None,
+        }
+    }
+
     for branch in section['checkmk'].keys():
-        if section['checkmk'][branch]['class'] == 'stable':
-            stable_versions += [section['checkmk'][branch]['version']]
-            # find latest stable branch by release date
-            if latest_stable_branch:
-                if section['checkmk'][branch]['release_date'] < section['checkmk'][latest_stable_branch]['release_date']:
-                    latest_stable_branch = branch
-            else:
-                latest_stable_branch = branch
+        _class = section['checkmk'][branch]['class']
+        classes[_class]['branches'] += branch
+        if classes[_class]['latest_branch']:
+            if section['checkmk'][branch]['release_date'] < section['checkmk'][classes[_class]['latest_branch']]['release_date']:
+                classes[_class]['latest_branch'] = branch
+        else:
+            classes[_class]['latest_branch'] = branch
 
-        if section['checkmk'][branch]['class'] == 'oldstable':
-            old_stable_versions += [section['checkmk'][branch]['version']]
-            # find latest old stable branch by release date
-            if latest_old_stable_branch:
-                if section['checkmk'][branch]['release_date'] < section['checkmk'][latest_old_stable_branch]['release_date']:
-                    latest_old_stable_branch = branch
-            else:
-                latest_old_stable_branch = branch
+    for _class in classes.keys():
+        if classes[_class]['latest_branch']:
+            classes[_class]['latest_version'] = section['checkmk'][classes[_class]['latest_branch']]['version']
 
-    latest_stable = section['checkmk'][latest_stable_branch]['version']
-    latest_old_stable = section['checkmk'][latest_old_stable_branch]['version']
+    latest_stable = classes['stable']['latest_version']
+    latest_old_stable = classes['oldstable']['latest_version']
 
-    yield Result(state=State.OK, summary=f'CMK: {checkmk_version}, on {platform} {os}, Edition: {edition}')
+    yield Result(state=State.OK, summary=f'CMK: {checkmk_version}, on {platform} {os}')
+    yield Result(state=State.OK, summary=f'Edition: {editions.get(edition, edition)}')
 
     if not re.match(r'\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build
         cmk_base_version = checkmk_version[:5]  # works only as long there are only single digit versions
