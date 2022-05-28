@@ -7,7 +7,7 @@ THX to baris.leenders[at]tribe29 for providing the data as JSON download and mar
 
 **NOTE**: before updating from the old agent_checkmk_download agent, remove the agent_checkmk_download package completely (rules and package) please. You also need to delete the `~/tmp/check_mk/cache/cmk_downloads` cache file.
 
-**Note**: to get the download URL not replaced by CMK you might need to disable `Escape HTML in service output` (_Setup_ > _Services_ > _Service monitoring rules_ > _Escape HTML in service output_) for the service `Checkmk update`.
+**Note**: to get the download URL not replaced by CMK you might need to disable `Escape HTML in service output` (_Setup_ > _Services_ > _Service monitoring rules_ > _Escape HTML in service output_) for the service `Checkmk Update`.
 
 ---
 Check Info:
