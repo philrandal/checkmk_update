@@ -196,6 +196,7 @@
 import re
 import json
 import time
+import os
 from typing import List, Dict, Any
 from cmk.base.plugins.agent_based.agent_based_api.v1 import (
     register,
@@ -225,12 +226,30 @@ def discovery_checkmk_update(section: List) -> DiscoveryResult:
     yield Service()
 
 
+def _get_distro_code():
+    omd_root = os.environ['OMD_ROOT']
+    distro_info_file = omd_root + '/share/omd/distro.info'
+    distro_code = None
+    if os.path.isfile(distro_info_file):
+        with open(distro_info_file, 'r') as f:
+            distro_info = f.read()
+        distro_info = distro_info.split('\n')
+        for line in distro_info:
+            if line.startswith('DISTRO_CODE'):
+                distro_code = line.split('=')[1].strip(' ')
+                break
+    return distro_code
+
+
 def check_checkmk_update(params, section: Dict[str, Any]) -> CheckResult:
 
     versions = get_general_version_infos()
     checkmk_version = versions['version']
     platform = versions['os'].split(' ')[0]
     os = ' '.join(versions['os'].split(' ')[1:])
+    edition = versions['edition']
+    distro_code = _get_distro_code()
+    download_url_base = 'https://download.checkmk.com/checkmk'
 
     # get versions
     stable_versions = []
@@ -259,7 +278,7 @@ def check_checkmk_update(params, section: Dict[str, Any]) -> CheckResult:
     latest_stable = section['checkmk'][latest_stable_branch]['version']
     latest_old_stable = section['checkmk'][latest_old_stable_branch]['version']
 
-    yield Result(state=State.OK, summary=f'CMK: {checkmk_version}, on {platform} {os}')
+    yield Result(state=State.OK, summary=f'CMK: {checkmk_version}, on {platform} {os}, Edition: {edition}')
 
     if not re.match(r'\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build
         cmk_base_version = checkmk_version[:5]  # works only as long there are only single digit versions
@@ -303,12 +322,14 @@ def check_checkmk_update(params, section: Dict[str, Any]) -> CheckResult:
         release_class = section['checkmk'][branch]["class"]
         release_date = section['checkmk'][branch]["release_date"]
         release_date = time.strftime('%Y-%m-%d', time.strptime(time.ctime(release_date)))
+        file = section['checkmk'][branch]['editions'][edition][distro_code][0]
         yield Result(
             state=State.OK,
             notice=f'{branch}: '
                    f'Release date: {release_date}, '
                    f'State: {release_class}, '
-                   f'Latest version: {latest_version}'
+                   f'Latest version: {latest_version},'
+                   f'URL: {download_url_base}/{latest_version}/{file}'
         )
 
     # add patch level as metric to have a litle release history
