@@ -47,11 +47,11 @@ graph_info['checkmk_update_patch_level'] = {
         ('appliance_patch', '-area'),
         ('latest_stable_patch', '-area'),
         ('old_stable_patch', 'area'),
-        ('stable_patch', 'area'),
     ],
     'optional_metrics': [
         'latest_stable_patch',
-        'appliance_patch'
+        'old_stable_patch'
+        'appliance_patch',
     ],
     'range': (0, 50),
 }

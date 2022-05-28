@@ -5,7 +5,7 @@
 # conditions defined in the file COPYING, which is part of this source code package.
 """
 Agent CheckMK Update
-Write JSON formatted results from https://download.checkmk.com/stable_downloads.json
+Read JSON formatted data from https://download.checkmk.com/stable_downloads.json
 """
 
 #
