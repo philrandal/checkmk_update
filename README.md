@@ -29,8 +29,12 @@ Sample output
 
 ![sample output](/doc/sample.png?raw=true "sample output")
 
-WATO options
+WATO options (Check)
 
 ![WATO options](/doc/wato.png?raw=true "WATO options")
+
+WATO options (Agent)
+
+![WATO options agent](/doc/wato-agent.png?raw=true "WATO options agent")
 
 
