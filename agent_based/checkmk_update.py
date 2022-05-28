@@ -16,6 +16,8 @@
 # 2022-05-27: fixed if agent_section has wrong format
 # 2022-05-28: rewritten for new json format (THX at baris.leenders[at]tribe29
 #             and martin.hirschvogel[at]tribe29 for supporting the development of this plugin)
+#             added download urls for latest versions
+#
 # sample agent output
 # {
 #     "version": 1,
