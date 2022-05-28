@@ -263,23 +263,23 @@ def check_checkmk_update(params, section: Dict[str, Any]) -> CheckResult:
     classes = {
         'stable': {
             'branches': [],
-            'latest_branch': None,
-            'latest_version': None,
+            'latest_branch': '',
+            'latest_version': '',
         },
         'oldstable': {
             'branches': [],
-            'latest_branch': None,
-            'latest_version': None,
+            'latest_branch': '',
+            'latest_version': '',
         },
         'beta': {
             'branches': [],
-            'latest_branch': None,
-            'latest_version': None,
+            'latest_branch': '',
+            'latest_version': '',
         },
         'innovation': {
             'branches': [],
-            'latest_branch': None,
-            'latest_version': None,
+            'latest_branch': '',
+            'latest_version': '',
         }
     }
 
@@ -344,14 +344,24 @@ def check_checkmk_update(params, section: Dict[str, Any]) -> CheckResult:
         release_class = section['checkmk'][branch]["class"]
         release_date = section['checkmk'][branch]["release_date"]
         release_date = time.strftime('%Y-%m-%d', time.strptime(time.ctime(release_date)))
-        file = section['checkmk'][branch]['editions'][edition][distro_code][0]
+
+        try:
+            file = section['checkmk'][branch]['editions'][edition][distro_code][0]
+        except KeyError:
+            file = None
+
+        if file:
+            url = f'{download_url_base}/{latest_version}/{file}'
+        else:
+            url = f'no download available for your distribution ({distro_code}).'
+
         yield Result(
             state=State.OK,
             notice=f'{branch}: '
                    f'Release date: {release_date}, '
                    f'State: {release_class}, '
                    f'Latest version: {latest_version},'
-                   f'URL: {download_url_base}/{latest_version}/{file}'
+                   f'URL: {url}'
         )
 
     # add patch level as metric to have a litle release history
