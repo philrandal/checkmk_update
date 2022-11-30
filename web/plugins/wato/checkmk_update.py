@@ -9,7 +9,7 @@
 #
 # Check_MK checkmk_updates WATO plugin
 #
-#
+# 2022-11-30: fixed CheckParameterRulespecWithoutItem (from CheckParameterRulespecWithItem)
 #
 
 from cmk.gui.i18n import _
@@ -19,7 +19,7 @@ from cmk.gui.valuespec import (
 )
 
 from cmk.gui.plugins.wato import (
-    CheckParameterRulespecWithItem,
+    CheckParameterRulespecWithoutItem,
     rulespec_registry,
     RulespecGroupCheckParametersOperatingSystem,
 )
@@ -46,7 +46,7 @@ def _parameter_valuespec_checkmk_update():
 
 
 rulespec_registry.register(
-    CheckParameterRulespecWithItem(
+    CheckParameterRulespecWithoutItem(
         check_group_name='checkmk_update',
         group=RulespecGroupCheckParametersOperatingSystem,
         match_type='dict',
