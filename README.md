@@ -1,25 +1,19 @@
-# Checkmk update agent [(Download the MKP package)](/../../../-/raw/master/agent_checkmk_update.mkp "Download MKP package")
+# Checkmk update agent [(Download the MKP package)](/../../../-/raw/master/checkmk_update.mkp "Download MKP package")
+
 ---
 
-This special agent will check once a day if a new Checkmk version is available. To use this check you need to configure the special agent "checkmk_update" (Setup -> Agents -> Other integrations -> Checkmk update) on your Checkmk server. The agent reads its data form the Checkmk download page **https://download.checkmk.com/stable_downloads.json**.
+This plugin will check once a day if a new Checkmk version is available. The plugin reads it's data form the Checkmk download page **https://download.checkmk.com/stable_downloads.json**.
 
-THX to baris.leenders[at]tribe29 for providing the data as JSON download and martin.hirschvogel[at]tribe29 for supporting the development of this plugin
+THX to Baris Leenders for providing the data as JSON download and Martin Hirschvogel for supporting the development of this plugin (both from tribe29).
 
-**NOTE**: before updating from the old agent_checkmk_download agent, remove the agent_checkmk_download package completely (rules and package) please. You also need to delete the `~/tmp/check_mk/cache/cmk_downloads` cache file.
+**NOTE**: before updating from the special agent version of this plugin, remove the old package completely (rules and package) please. 
 
-**NOTE**: to get the download URL not replaced by CMK you might need to disable `Escape HTML in service output` (_Setup_ > _Services_ > _Service monitoring rules_ > _Escape HTML in service output_) for the service `Checkmk Update`.
-
-**NOTE**: This is a special agent. So you might need to change the _**Checkmk agent / API integrations**_  setting for your host object to _**Configured API Integrations and Checkmk agent**_.
-
-<details><summary>Host setting: Configured API Integrations and Checkmk agent</summary>
-![Host Setting](/doc/host-setting.png?raw=true "Host setting")
-</details>
-
+**NOTE**: to get the download URL not replaced by CMK you need to disable `Escape HTML in service output` (_Setup_ > _Services_ > _Service monitoring rules_ > _Escape HTML in service output_) for the service `Checkmk Update`.
 
 ---
 Check Info:
 
-* *service*: creates the service **_Checkmk Update_**
+* *service*: creates the service **_Checkmk Update_** with the CMK site name as the _item_
 ---
 * *state*: \
     **warning**: 
@@ -41,9 +35,3 @@ Sample output
 WATO options (Check)
 
 ![WATO options](/doc/wato.png?raw=true "WATO options")
-
-WATO options (Agent)
-
-![WATO options agent](/doc/wato-agent.png?raw=true "WATO options agent")
-
-
