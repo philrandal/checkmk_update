@@ -10,7 +10,8 @@ THX to Baris Leenders for providing the data as JSON download and Martin Hirschv
 
 **NOTE**: to get the download URLs in the service details not replaced by CMK you need to disable `Escape HTML in service output` (_Setup_ > _Services_ > _Service monitoring rules_ > _Escape HTML in service output_) for the service `Checkmk Update`.
 
-### Prerequisites
+---
+#### Prerequisites
 
 For the check plugin to work
 - Your CMK site servers need to run check-mk agent version 2.0.0 or higher to get CMK site informations
@@ -18,7 +19,13 @@ For the check plugin to work
 - The CMK server where the check runs must have access to **https://download.checkmk.com/stable_downloads.json**
 
 ---
-Check Info:
+
+#### Want to contribute?
+Nice ;-) Have a look at the [contribution guidelines](CONTRIBUTING.md "Contributing")
+
+---
+
+#### Check Info:
 
 * *service*: creates the service **_Checkmk Update_** with the CMK site name as the _item_
 ---
