@@ -7,7 +7,7 @@ For some fixes/improvements I migth need the raw output of the _**lnx_distro**_ 
 I also need to know the following:
 - version/edition of check_mk you are using
 - version of the check_mk agent you are using
-- version/platform of the target platform
+- version/platform of the target system
 
 
 ```
