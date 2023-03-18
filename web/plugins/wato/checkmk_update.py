@@ -46,13 +46,13 @@ def _parameter_valuespec_checkmk_update():
              default_value=1,
              title=_('State if CMK base version could not be detected.'),
          )),
-        ('no_cert_check',
-            FixedValue(
-                True,
-                title=_('Disable SSL certificate validation'),
-                totext=_(''),
-                help=_('Dont check the TLS certificate for https://download.checkmk-com')
-            )),
+        # ('no_cert_check',
+        #     FixedValue(
+        #         True,
+        #         title=_('Disable SSL certificate validation'),
+        #         totext=_(''),
+        #         help=_('Dont check the TLS certificate for https://download.checkmk-com')
+        #     )),
         ('timeout',
             Integer(
                 title=_('Connection Timeout'),

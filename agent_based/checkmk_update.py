@@ -17,6 +17,8 @@
 # 2022-05-28: rewritten for new json format (THX at baris.leenders[at]tribe29
 #             and martin.hirschvogel[at]tribe29 for supporting the development of this plugin)
 #             added download urls for latest versions
+# 2023-03-18: rewritten as a "normal" check plugin (no special agent)
+#             before updating to this version remove the special agent version (rules + package)
 #
 # sample agent output
 # {
