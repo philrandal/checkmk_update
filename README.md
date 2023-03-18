@@ -8,7 +8,14 @@ THX to Baris Leenders for providing the data as JSON download and Martin Hirschv
 
 **NOTE**: before updating from the special agent version of this plugin, remove the old package completely (rules and package) please. 
 
-**NOTE**: to get the download URL not replaced by CMK you need to disable `Escape HTML in service output` (_Setup_ > _Services_ > _Service monitoring rules_ > _Escape HTML in service output_) for the service `Checkmk Update`.
+**NOTE**: to get the download URLs in the service details not replaced by CMK you need to disable `Escape HTML in service output` (_Setup_ > _Services_ > _Service monitoring rules_ > _Escape HTML in service output_) for the service `Checkmk Update`.
+
+### Prerequisites
+
+For the check plugin to work
+- Your CMK site servers need to run check-mk agent version 2.0.0 or higher to get CMK site informations
+- The HW/SW inventory plugin for Linux must be installad and running
+- The CMK server where the check runs must have access to **https://download.checkmk.com/stable_downloads.json**
 
 ---
 Check Info:
