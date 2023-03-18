@@ -199,7 +199,8 @@ import re
 import json
 import time
 import os
-from typing import List, Dict, Any
+import requests
+from typing import Dict, Final, Iterable, Mapping, Optional, Tuple, List, Any
 from cmk.base.plugins.agent_based.agent_based_api.v1 import (
     register,
     Result,
@@ -211,46 +212,270 @@ from cmk.base.plugins.agent_based.agent_based_api.v1 import (
 from cmk.base.plugins.agent_based.agent_based_api.v1.type_defs import (
     DiscoveryResult,
     CheckResult,
+    StringTable,
 )
 
-from cmk.utils.version import get_general_version_infos
+#
+#  code from lnx_distro.py start
+#
 
 
-def parse_checkmk_update(string_table):
-    try:
-        agentoutput = json.loads(string_table[0][0])
-    except json.JSONDecodeError:
-        return
-    return agentoutput
+_KVPairs = Iterable[Tuple[str, str]]
+_Line = List[str]
+
+Section = Mapping[str, _Line]
 
 
-def discovery_checkmk_update(section: List) -> DiscoveryResult:
-    yield Service()
+def _parse_lnx_distro(string_table: StringTable) -> Section:
+    parsed: Dict[str, List[str]] = {}
+    filename = None
+    for line in string_table:
+        if line[0].startswith("[[[") and line[0].endswith("]]]"):
+            filename = line[0][3:-3]
+        elif filename is not None:
+            parsed.setdefault(filename, line)
+        elif filename is None:
+            # stay compatible to older versions of output
+            parsed.setdefault(line[0], line[1:])
+    return parsed
 
 
-def _get_distro_code():
+def inv_lnx_parse_os(line: _Line) -> _KVPairs:
+    for entry in line:
+        if entry.count("=") == 0:
+            continue
+        k, v = [x.replace('"', "") for x in entry.split("=", 1)]
+        if k == "VERSION_ID":
+            yield "version", v
+        elif k == "PRETTY_NAME":
+            yield "name", v
+        elif k == "VERSION_CODENAME":
+            yield "code_name", v.title()
+        elif k == "ID":
+            yield "vendor", v.title()
+
+
+_SUSE_CODE_NAMES: Final = {
+    "11.2": "Emerald",
+    "11.3": "Teal",
+    "11.4": "Celadon",
+    "12.1": "Asparagus",
+    "12.2": "Mantis",
+    "12.3": "Darthmouth",
+    "13.1": "Bottle",
+}
+
+
+def inv_lnx_parse_suse(line: _Line) -> _KVPairs:
+    major = line[1].split()[-1]
+    if len(line) >= 3:
+        patchlevel = line[2].split()[-1]
+    else:
+        patchlevel = "0"
+
+    version = "%s.%s" % (major, patchlevel)
+
+    yield "vendor", "SuSE"
+    yield "version", version
+    yield "name", "%s.%s" % (line[0].split("(")[0].strip(), patchlevel)
+
+    if (code_name := _SUSE_CODE_NAMES.get(version)) is not None:
+        yield "code_name", code_name
+
+
+def inv_lnx_parse_redhat(line: _Line) -> _KVPairs:
+    entry = line[0]
+    if entry.startswith("Oracle"):
+        yield from inv_lnx_parse_oracle_vm_server(line)
+    else:
+        parts = entry.split("(")
+        left = parts[0].strip()
+        # if codename "(CODENAME)" is present, list looks like
+        # ['Red Hat Enterprise Linux Server release 6.7 ', 'Santiago)']
+        if len(parts) == 2:
+            yield "code_name", parts[1].rstrip(")")
+        name, _release, version = left.rsplit(None, 2)
+        if name.startswith("Red Hat"):
+            yield "vendor", "Red Hat"
+        yield "version", version
+        yield "name", left
+
+
+def inv_lnx_parse_oracle_vm_server(line: _Line) -> _KVPairs:
+    parts = line[0].split(" ")
+    yield "vendor", parts.pop(0)
+    yield "version", parts.pop(-1)
+    yield "name", " ".join(parts[:-1])
+
+
+def inv_lnx_parse_lsb(line: _Line) -> _KVPairs:
+    for entry in line:
+        varname, value = entry.split("=", 1)
+        value = value.strip("'").strip('"')
+        if varname == "DISTRIB_ID":
+            yield "vendor", value
+        elif varname == "DISTRIB_RELEASE":
+            yield "version", value
+        elif varname == "DISTRIB_CODENAME":
+            yield "code_name", value.title()
+        elif varname == "DISTRIB_DESCRIPTION":
+            yield "name", value
+
+
+_DEBIAN_CODE_NAMES: Final = (
+    ("2.0.", "Hamm"),
+    ("2.1.", "Slink"),
+    ("2.2.", "Potato"),
+    ("3.0.", "Woody"),
+    ("3.1.", "Sarge"),
+    ("4.", "Etch"),
+    ("5.", "Lenny"),
+    ("6.", "Squeeze"),
+    ("7.", "Wheezy"),
+    ("8.", "Jessie"),
+    ("9.", "Stretch"),
+    ("10.", "Buster"),
+    ("11.", "Bullseye"),
+)
+
+
+# Do not overwrite Ubuntu information
+def inv_lnx_parse_debian(line: _Line) -> _KVPairs:
+    entry = line[0]
+    yield "name", "Debian " + entry
+    yield "vendor", "Debian"
+    yield "version", entry
+
+    for prefix, code_name in _DEBIAN_CODE_NAMES:
+        if entry.startswith(prefix):
+            yield "code_name", code_name
+            return
+
+
+def inv_lnx_parse_cma(line: _Line) -> _KVPairs:
+    yield "name", "Checkmk Appliance " + line[0]
+    yield "vendor", "tribe29 GmbH"
+    yield "version", line[0]
+    yield "code_name", None
+
+
+def inv_lnx_parse_gentoo(line: _Line) -> _KVPairs:
+    entry = line[0]
+    yield "name", entry
+    yield "vendor", "Gentoo"
+    parts = entry.split(" ")
+    yield "version", parts.pop(-1)
+    yield "code_name", None
+
+
+_HANDLERS: Final = (
+    ("/usr/share/cma/version", inv_lnx_parse_cma),
+    ("/etc/os-release", inv_lnx_parse_os),
+    ("/etc/gentoo-release", inv_lnx_parse_gentoo),
+    ("/etc/SuSE-release", inv_lnx_parse_suse),
+    ("/etc/oracle-release", inv_lnx_parse_oracle_vm_server),
+    ("/etc/redhat-release", inv_lnx_parse_redhat),
+    ("/etc/lsb-release", inv_lnx_parse_lsb),
+    ("/etc/debian_version", inv_lnx_parse_debian),
+)
+
+#
+#  code from lnx_distro.py end
+#
+
+
+def _get_distro(lnx_distro) -> Dict[str, str]:
+    if isinstance(lnx_distro, list):
+        lnx_distro = _parse_lnx_distro(lnx_distro)
+    for file_name, handler in _HANDLERS:
+        if file_name in lnx_distro:
+            distro = dict(handler(lnx_distro[file_name]))
+            if distro['vendor'].lower() in ['centos', 'red hat']:
+                distro['cmk_code'] = f'el{distro["version"]}'
+            elif 'suse' in distro['vendor'].lower():
+                try:
+                    major, minor = distro['version'].split('.')
+                    distro['cmk_code'] = f'sles{major}sp{minor}'
+                except ValueError:
+                    distro['cmk_code'] = f'sles{distro["version"]}'
+            elif distro['vendor'].lower() == 'tribe29 gmbh':
+                if distro['version'] < '1.5':
+                    distro['cmk_code'] = 'cma-2'
+                else:
+                    distro['cmk_code'] = 'cma-3'
+
+            return distro
+    return {}
+
+
+def _get_dat_from_checkmk(cache_file: str, timeout: int) -> str:
+    url = 'https://download.checkmk.com/stable_downloads.json'
+
+    response = requests.get(
+        url=url,
+        timeout=timeout,
+        # verify=not args.no_cert_check,
+    )
+    if response.status_code == 200:
+        page_source = response.text
+        with open(cache_file, 'w') as f:
+            f.write(page_source)
+        return page_source
+    else:
+        return '{}'
+
+
+def _get_cmk_update_data(timeout: int) -> Optional[Dict[str, Any]]:
     omd_root = os.environ['OMD_ROOT']
-    distro_info_file = omd_root + '/share/omd/distro.info'
-    distro_code = None
-    if os.path.isfile(distro_info_file):
-        with open(distro_info_file, 'r') as f:
-            distro_info = f.read()
-        distro_info = distro_info.split('\n')
-        for line in distro_info:
-            if line.startswith('DISTRO_CODE'):
-                distro_code = line.split('=')[1].strip(' ')
-                break
-    return distro_code
+    cache_file = omd_root + '/tmp/check_mk/cache/cmk_downloads'
+    # cache_file = omd_root + '/var/check_mk/cmk_downloads'
+    # page_source = '{}'
+
+    if os.path.isfile(cache_file):
+        now_time = int(time.time())
+        modify_time = int(os.path.getmtime(cache_file))
+        if (now_time - modify_time) < 86400:
+            with open(cache_file, 'r') as f:
+                page_source = f.read()
+        else:
+            page_source = _get_dat_from_checkmk(cache_file, timeout)
+    else:
+        page_source = _get_dat_from_checkmk(cache_file, timeout)
+
+    try:
+        return json.loads(page_source)
+    except json.JSONDecodeError:
+        return {}
 
 
-def check_checkmk_update(params, section: Dict[str, Any]) -> CheckResult:
+def discovery_checkmk_update(section_lnx_distro, section_omd_info) -> DiscoveryResult:
+    if section_omd_info is not None:
+        for site in section_omd_info.get('sites', {}).keys():
+            yield Service(item=site)
 
-    versions = get_general_version_infos()
-    checkmk_version = versions['version']
-    platform = versions['os'].split(' ')[0]
-    os = ' '.join(versions['os'].split(' ')[1:])
-    edition = versions['edition']
-    distro_code = _get_distro_code()
+
+def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> CheckResult:
+    if not section_lnx_distro:
+        yield Result(
+            state=State.WARN,
+            summary='Operating System data not found. Check if HW/SW inventory is active and the "Operating System" '
+                    'data are present in the inventory.')
+        return
+
+    try:
+        site = section_omd_info.get('sites')[item]
+    except KeyError:
+        yield Result(state=State.UNKNOWN, summary='Item not found in agent data')
+        return
+
+    cmk_update_data = _get_cmk_update_data(params['timeout'])
+
+    distro = _get_distro(section_lnx_distro)
+    used_version = site['used_version'].split('.')
+    checkmk_version = '.'.join(used_version[:-1])
+    cmk_code = distro.get('cmk_code', distro.get('code_name'))
+    edition = used_version[-1]
+
     download_url_base = 'https://download.checkmk.com/checkmk'
 
     editions = {
@@ -283,29 +508,29 @@ def check_checkmk_update(params, section: Dict[str, Any]) -> CheckResult:
         }
     }
 
-    for branch in section['checkmk'].keys():
-        _class = section['checkmk'][branch]['class']
+    for branch in cmk_update_data['checkmk'].keys():
+        _class = cmk_update_data['checkmk'][branch]['class']
         classes[_class]['branches'] += branch
         if classes[_class]['latest_branch']:
-            if section['checkmk'][branch]['release_date'] < section['checkmk'][classes[_class]['latest_branch']]['release_date']:
+            if cmk_update_data['checkmk'][branch]['release_date'] < cmk_update_data['checkmk'][classes[_class]['latest_branch']]['release_date']:
                 classes[_class]['latest_branch'] = branch
         else:
             classes[_class]['latest_branch'] = branch
 
     for _class in classes.keys():
         if classes[_class]['latest_branch']:
-            classes[_class]['latest_version'] = section['checkmk'][classes[_class]['latest_branch']]['version']
+            classes[_class]['latest_version'] = cmk_update_data['checkmk'][classes[_class]['latest_branch']]['version']
 
     latest_stable = classes['stable']['latest_version']
     latest_old_stable = classes['oldstable']['latest_version']
 
-    yield Result(state=State.OK, summary=f'CMK: {checkmk_version}, on {platform} {os}')
+    yield Result(state=State.OK, summary=f'CMK: {checkmk_version}, on {distro.get("name")} ({cmk_code})')
     yield Result(state=State.OK, summary=f'Edition: {editions.get(edition, edition)}')
 
     if not re.match(r'\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build
         cmk_base_version = checkmk_version[:5]  # works only as long there are only single digit versions
-        # get release information from section for cmk base version
-        release_info = section['checkmk'].get(cmk_base_version)
+        # get release information from cmk_update_data for cmk base version
+        release_info = cmk_update_data['checkmk'].get(cmk_base_version)
         if release_info:
             if release_info['class'] == 'oldstable':
                 old_stable = release_info['version']
@@ -339,21 +564,21 @@ def check_checkmk_update(params, section: Dict[str, Any]) -> CheckResult:
         state=State.OK,
         notice=f'\nAvailable CMK releases:'
     )
-    for branch in section['checkmk'].keys():
-        latest_version = section['checkmk'][branch]['version']
-        release_class = section['checkmk'][branch]["class"]
-        release_date = section['checkmk'][branch]["release_date"]
+    for branch in cmk_update_data['checkmk'].keys():
+        latest_version = cmk_update_data['checkmk'][branch]['version']
+        release_class = cmk_update_data['checkmk'][branch]["class"]
+        release_date = cmk_update_data['checkmk'][branch]["release_date"]
         release_date = time.strftime('%Y-%m-%d', time.strptime(time.ctime(release_date)))
 
         try:
-            file = section['checkmk'][branch]['editions'][edition][distro_code][0]
+            file = cmk_update_data['checkmk'][branch]['editions'][edition][cmk_code.lower()][0]
         except KeyError:
             file = None
 
         if file:
             url = f'{download_url_base}/{latest_version}/{file}'
         else:
-            url = f'no download available for your distribution ({distro_code}).'
+            url = f'no download available for your distribution ({cmk_code}).'
 
         yield Result(
             state=State.OK,
@@ -372,20 +597,18 @@ def check_checkmk_update(params, section: Dict[str, Any]) -> CheckResult:
     # yield Metric(value=int(appliance.split('.')[-1]), name='appliance_patch', boundaries=(0, None))
 
 
-register.agent_section(
-    name='checkmk_update',
-    parse_function=parse_checkmk_update,
-)
-
 register.check_plugin(
     name='checkmk_update',
-    service_name='Checkmk Update',
+    service_name='Checkmk Update %s',
+    sections=['lnx_distro', 'omd_info'],
     discovery_function=discovery_checkmk_update,
     check_function=check_checkmk_update,
     check_default_parameters={
         'state_on_unsupported': 2,
         'state_not_latest_base': 1,
         'state_unknown': 1,
+        'timeout': 5,
+        # 'no_cert_check': False,
     },
     check_ruleset_name='checkmk_update',
 )
