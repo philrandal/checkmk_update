@@ -2,7 +2,7 @@
 
 ---
 
-This plugin will check once a day if a new Checkmk version is available. The plugin reads it's data form the Checkmk download page **https://download.checkmk.com/stable_downloads.json**.
+This plugin mointors the update status of yor CMK sites and your CMK appliance firmware. The plugin reads it's data once a day form the Checkmk download page (**https://download.checkmk.com/stable_downloads.json**).
 
 THX to Baris Leenders for providing the data as JSON download and Martin Hirschvogel for supporting the development of this plugin (both from tribe29).
 
@@ -15,8 +15,8 @@ THX to Baris Leenders for providing the data as JSON download and Martin Hirschv
 
 For the check plugin to work
 - Your CMK site servers need to run check-mk agent version 2.0.0 or higher to get CMK site informations
-- The HW/SW inventory plugin for Linux must be installad and running
-- The CMK server where the check runs must have access to **https://download.checkmk.com/stable_downloads.json**
+- The HW/SW inventory plugin for Linux must be installad and running (`mk_inventory.linux` agent plugin needs to be deployed)
+- The CMK server, where the check runs must have access to **https://download.checkmk.com/stable_downloads.json**
 
 ---
 
