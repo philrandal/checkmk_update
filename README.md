@@ -85,3 +85,7 @@ Sample output
 
 ![sample output](/doc/sample.png?raw=true "sample output")
 
+
+Sample details output
+
+![sample details output](/doc/sample_details.png?raw=true "sample details output")
