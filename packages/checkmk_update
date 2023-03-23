@@ -1,5 +1,7 @@
 {'author': 'Th.L. (thl-cmk[at]outlook[dot]com)',
- 'description': 'Check the update status of CMK sites. Uses the data from '
+ 'description': 'Check the update status of CMK sites and CMK appliance '
+                'firmware. \n'
+                'Uses the data from '
                 'https://download.checkmk.com/stable_downloads.json.\n'
                 '\n'
                 'THX to baris.leenders[at]tribe29 for providing this data and '
@@ -14,7 +16,7 @@
                    'plugins/wato/checkmk_update.py']},
  'name': 'checkmk_update',
  'title': 'Checkmk Update',
- 'version': '20230318.v.0.6',
+ 'version': '20230323.v.0.7',
  'version.min_required': '2.0.0',
  'version.packaged': '2.1.0p21',
  'version.usable_until': None}

@@ -45,8 +45,8 @@ graph_info['checkmk_update_patch_level'] = {
     'title': _('CheckMK patch level release history'),
     'metrics': [
         # ('appliance_patch', '-area'),
-        ('latest_stable_patch', '-area'),
         ('old_stable_patch', 'area'),
+        ('latest_stable_patch', '-area'),
     ],
     'optional_metrics': [
         'latest_stable_patch',

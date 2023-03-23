@@ -19,7 +19,14 @@
 #             added download urls for latest versions
 # 2023-03-18: rewritten as a "normal" check plugin (no special agent)
 #             before updating to this version remove the special agent version (rules + package)
+# 2023-03-19: added support for appliance firmware version
 #
+#
+# Known issues
+# for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
+# moves the distro parsing in lnx_distro to the parsing function where it belongs.
+
+
 # sample agent output
 # {
 #     "version": 1,
@@ -30,85 +37,30 @@
 #             "class": "stable",
 #             "editions": {
 #                 "cme": {
-#                     "impish": [
-#                         "check-mk-managed-2.1.0_0.impish_amd64.deb",
-#                         "e16313c22655c7b73605718884a4d857b889db442cc54875ff97c2e322d74d30"
-#                     ],
-#                     "jammy": [
-#                         "check-mk-managed-2.1.0_0.jammy_amd64.deb",
-#                         "b61aa84efc8ee8d99d00e3c9b786460f293c35f425acf237213496f7d28d412d"
-#                     ],
-#                     "stretch": [
-#                         "check-mk-managed-2.1.0_0.stretch_amd64.deb",
-#                         "6c5fab5db4de942185a191a29261531fc291df7906f88afda7d1ab608c09c090"
-#                     ],
-#                     "xenial": [
-#                         "check-mk-managed-2.1.0_0.xenial_amd64.deb",
-#                         "6c57c6e723b3f7a516d0874cd405866908edbd443fc4fe45c04431d22514ee03"
-#                     ],
 #                     "cma-3": [
 #                         "check-mk-managed-2.1.0-3-x86_64.cma",
 #                         "bc05572179302ef798eea2f80aca6d6c84a453afcf3ba9daeb14b3bae1ed5243"
-#                     ],
-#                     "el7": [
-#                         "check-mk-managed-2.1.0-el7-38.x86_64.rpm",
-#                         "a8fa2f6dc2d401ed9c65ef765034d71214eafbc6dee3d7a3c03985d16337b8f8"
-#                     ],
+#
 #                     "el8": [
 #                         "check-mk-managed-2.1.0-el8-38.x86_64.rpm",
 #                         "3821eb16e31a4aecfc31a09488e7c3c3f9097adf55c29efa0fd5bab742e431be"
-#                     ],
-#                     "sles12sp3": [
-#                         "check-mk-managed-2.1.0-sles12sp3-38.x86_64.rpm",
-#                         "10394df58b42d0eb823b722482f938071a5198ee6caa8a6cda12d1fd240d15d2"
-#                     ],
-#                     "sles12sp4": [
-#                         "check-mk-managed-2.1.0-sles12sp4-38.x86_64.rpm",
-#                         "3d598bdb9e58f39a81b8aea9c2d507c4ae0fe382dce9bc8db134ddbfc1d58d3c"
-#                     ],
-#                     "sles12sp5": [
-#                         "check-mk-managed-2.1.0-sles12sp5-38.x86_64.rpm",
-#                         "6b97e835e9b9cad6805d472fddcbade360b9d69104111766dcb4ff50f0f0afa7"
-#                     ],
-#                     "sles15": [
-#                         "check-mk-managed-2.1.0-sles15-38.x86_64.rpm",
-#                         "1a8bf238a10766a051233b5978f5c347449266f64bbb4e0a00d590f9620bf9f6"
-#                     ],
-#                     "sles15sp1": [
-#                         "check-mk-managed-2.1.0-sles15sp1-38.x86_64.rpm",
-#                         "e801b7904dacef57c7cfe729c10e28a067bcaaf46730952fb5e2c3db8134f5e6"
-#                     ],
-#                     "sles15sp2": [
-#                         "check-mk-managed-2.1.0-sles15sp2-38.x86_64.rpm",
-#                         "5a98ac4124a943785fc2b1753f16614b0ad316b2cdcefae87a525ece94f80af2"
 #                     ],
 #                     "sles15sp3": [
 #                         "check-mk-managed-2.1.0-sles15sp3-38.x86_64.rpm",
 #                         "7b41935ca0468dfc4217ab836d4a0b7ad982b846a5be24041ecb282ef3d131bb"
 #                     ],
-#                     "bionic": [
-#                         "check-mk-managed-2.1.0_0.bionic_amd64.deb",
-#                         "618ddeb474bfc6ba8c1883aa88a375793c1edf71e9c51895605f4f8f2aa30c0d"
-#                     ],
 #                     "bullseye": [
 #                         "check-mk-managed-2.1.0_0.bullseye_amd64.deb",
 #                         "2003fc551b3317efbfc45d53ebd78807c07a72d90bffa9489c81ce78b5cd7e3b"
-#                     ],
-#                     "buster": [
-#                         "check-mk-managed-2.1.0_0.buster_amd64.deb",
-#                         "aa36433ee7e5ca25d5e25604c151685a7eaa5b3d99437aad468e20c1c964a331"
 #                     ],
 #                     "focal": [
 #                         "check-mk-managed-2.1.0_0.focal_amd64.deb",
 #                         "352e28e459fe3f1129c6d59f544b4a0a036e89a0449ead682d6960405e44e937"
 #                     ],
-#                     "cma-2": [
-#                         "check-mk-managed-2.1.0-2-x86_64.cma",
-#                         "e5c53df1aab71b7a1b1472543e509ca71b8192a1af83856b0d2612f121ea3a47"
-#                     ],
 #                     "docker": [
 #                         "check-mk-managed-docker-2.1.0.tar.gz"
-#                     ]
+#                     ],
+#                     ...
 #                 },
 #                 "cre": {
 #                     ...
@@ -461,7 +413,8 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
         yield Result(
             state=State.WARN,
             summary='Operating System data not found. Check if HW/SW inventory is active and the "Operating System" '
-                    'data are present in the inventory.')
+                    'data are present in the inventory. (The mk_inventory.linux agent plugin needs to be deployed).'
+        )
         return
 
     try:
@@ -512,9 +465,9 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
 
     for branch in cmk_update_data['checkmk'].keys():
         _class = cmk_update_data['checkmk'][branch]['class']
-        classes[_class]['branches'] += branch
+        classes[_class]['branches'].append(branch)
         if classes[_class]['latest_branch']:
-            if cmk_update_data['checkmk'][branch]['release_date'] < cmk_update_data['checkmk'][classes[_class]['latest_branch']]['release_date']:
+            if cmk_update_data['checkmk'][branch]['release_date'] > cmk_update_data['checkmk'][classes[_class]['latest_branch']]['release_date']:
                 classes[_class]['latest_branch'] = branch
         else:
             classes[_class]['latest_branch'] = branch
@@ -526,8 +479,12 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
     latest_stable = classes['stable']['latest_version']
     latest_old_stable = classes['oldstable']['latest_version']
 
-    yield Result(state=State.OK, summary=f'CMK: {checkmk_version}, on {distro.get("name")} ({cmk_code})')
-    yield Result(state=State.OK, summary=f'Edition: {editions.get(edition, edition)}')
+    yield Result(
+        state=State.OK,
+        summary=f'{edition.upper()} {checkmk_version}, on {distro.get("name")}',
+        details=f'{editions.get(edition, edition)} {checkmk_version}, on {distro.get("name")}'
+    )
+    # yield Result(state=State.OK, notice=f'Edition: {editions.get(edition, edition)}')
 
     if not re.match(r'\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build
         cmk_base_version = checkmk_version[:5]  # works only as long there are only single digit versions
@@ -539,27 +496,55 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
                 if checkmk_version != release_info['version']:
                     yield Result(
                         state=State(params['state_not_latest_base']),
-                        notice=f'Update available, old stable: {old_stable}'
+                        notice=f'Update available: {old_stable}'
                     )
                 else:
-                    yield Result(state=State.OK, summary=f'In line with old stable')
-                yield Result(state=State.OK, summary=f'You might upgrade to latest stable: {latest_stable}')
+                    yield Result(state=State.OK, notice=f'No update for this release available')
+                yield Result(state=State(params['state_not_on_stable']), summary=f'Latest stable: {latest_stable}')
             elif release_info['class'] == 'stable':
                 stable = release_info['version']
                 if checkmk_version != stable:
                     yield Result(
                         state=State(params['state_not_latest_base']),
-                        notice=f'Update available, stable: {stable}'
+                        notice=f'Update available: {stable}'
                     )
                 else:
-                    yield Result(state=State.OK, summary=f'In line with stable')
+                    yield Result(state=State.OK, notice=f'No update available')
         else:
             yield Result(
                 state=State(params['state_on_unsupported']),
-                notice=f'You are using an old (unsupported) version, please upgrade to a supported version'
+                notice=f'Unsupported version {checkmk_version}'
             )
     else:
         yield Result(state=State.OK, summary=f'This is a daily build of CMK')
+
+    cfw_latest = '0.0.0'
+    cfw_current_latest = '0.0.0'
+    if distro['name'].lower().startswith('checkmk appliance'):
+        cfw_current = distro['version']
+        cfw_current_main = '.'.join(cfw_current.split('.')[:2])
+        for version in cmk_update_data['appliance']:
+            if version.startswith(cfw_current_main):
+                cfw_current_latest = version
+            if version > cfw_latest:
+                cfw_latest = version
+        if cfw_current_latest == '0.0.0':
+            yield Result(
+                state=State(params['state_cfw_unsupported']),
+                notice=f'Appliance firmware {cfw_current} is unsupported'
+            )
+        elif cfw_current == cfw_current_latest:
+            yield Result(state=State.OK, notice=f'Appliance firmware in line with version {cfw_current_main}')
+        else:
+            yield Result(
+                state=State(params['state_cfw_not_latest_base']),
+                notice=f'Appliance firmware update available {cfw_current_latest}'
+            )
+        message = f'Latest appliance firmware {cfw_latest}'
+        if cfw_current_latest < cfw_latest:
+            yield Result(state=State(params['state_cfw_not_latest']), notice=message)
+        else:
+            yield Result(state=State.OK, notice=message)
 
     # output available releases
     yield Result(
@@ -593,7 +578,7 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
 
     # add patch level as metric to have a litle release history
     if len(latest_stable) == 5:
-        latest_stable += 'p00'  # check for initial release (no patch level
+        latest_stable += 'p00'  # check for initial release (no patch level)
     yield Metric(value=int(latest_stable.split('p')[-1]), name='latest_stable_patch', boundaries=(0, None))
     yield Metric(value=int(latest_old_stable.split('p')[-1]), name='old_stable_patch', boundaries=(0, None))
     # yield Metric(value=int(appliance.split('.')[-1]), name='appliance_patch', boundaries=(0, None))
@@ -608,6 +593,10 @@ register.check_plugin(
     check_default_parameters={
         'state_on_unsupported': 2,
         'state_not_latest_base': 1,
+        'state_not_on_stable': 1,
+        'state_cfw_unsupported': 2,
+        'state_cfw_not_latest_base': 1,
+        'state_cfw_not_latest': 1,
         'state_unknown': 1,
         'timeout': 5,
         # 'no_cert_check': False,

@@ -11,7 +11,7 @@
 #
 # 2022-11-30: fixed CheckParameterRulespecWithoutItem (from CheckParameterRulespecWithItem)
 # 2023-03-14: merged with agent_checkmk_update WATO rules
-#
+# 2023-03-19: added CMK appliance options
 
 from cmk.gui.i18n import _
 from cmk.gui.valuespec import (
@@ -39,12 +39,33 @@ def _parameter_valuespec_checkmk_update():
          MonitoringState(
              default_value=1,
              title=_(
-                 'State if version is older than latest version of base version.'),
+                 'State if CMK version is older than latest version of base version.'),
+         )),
+        ('state_not_on_stable',
+         MonitoringState(
+             default_value=1,
+             title=_(
+                 'State if CMK version is an old stable release.'),
          )),
         ('state_unknown',
          MonitoringState(
              default_value=1,
              title=_('State if CMK base version could not be detected.'),
+         )),
+        ('state_cfw_unsupported',
+         MonitoringState(
+             default_value=2,
+             title=_('State if CMK appliance firmware is unsupported.'),
+         )),
+        ('state_cfw_not_latest_base',
+         MonitoringState(
+             default_value=1,
+             title=_('State if CMK appliance firmware update available (same base version).'),
+         )),
+        ('state_cfw_not_latest',
+         MonitoringState(
+             default_value=1,
+             title=_('State if CMK appliance firmware is not the latest release.'),
          )),
         # ('no_cert_check',
         #     FixedValue(
@@ -55,7 +76,7 @@ def _parameter_valuespec_checkmk_update():
         #     )),
         ('timeout',
             Integer(
-                title=_('Connection Timeout'),
+                title=_('Connection Timeout for update data download'),
                 help=_('The connection timeout in seconds for accessing '
                        'https://download.checkmk-com/stable_downloads.json. Default is 5 seconds'),
                 default_value=5,
