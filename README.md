@@ -88,4 +88,4 @@ Sample output
 
 Sample details output
 
-![sample details output](/doc/sample_details.png?raw=true "sample details output")
+![sample details output](/doc/sample-details.png?raw=true "sample details output")
