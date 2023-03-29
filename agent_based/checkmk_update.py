@@ -20,6 +20,7 @@
 # 2023-03-18: rewritten as a "normal" check plugin (no special agent)
 #             before updating to this version remove the special agent version (rules + package)
 # 2023-03-19: added support for appliance firmware version
+# 2023-03-28: added Checkmk Cloud Edition
 #
 #
 # Known issues
@@ -153,6 +154,8 @@ import re
 import json
 import time
 import os
+
+# import cmk.base.packaging
 import requests
 from typing import Dict, Final, Iterable, Mapping, Optional, Tuple, List, Any
 from cmk.base.plugins.agent_based.agent_based_api.v1 import (
@@ -438,6 +441,7 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
         'cfe': 'Checkmk Enterprise Free Edition',
         'cee': 'Checkmk Enterprise Standard Edition',
         'cme': 'Checkmk Enterprise Managed Services Edition',
+        'cce': 'Checkmk Checkmk Cloud Edition',
     }
 
     classes = {

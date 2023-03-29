@@ -9,3 +9,5 @@
 2022-11-30: WATO: fixed CheckParameterRulespecWithoutItem (from CheckParameterRulespecWithItem)
 2023-03-18: rewritten as a "normal" check plugin (no special agent)
             before updating to this version remove the special agent version (rules + package)
+2023-03-19: added support for appliance firmware version
+2023-03-28: added Checkmk Cloud Edition

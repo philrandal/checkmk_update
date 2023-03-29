@@ -21,13 +21,13 @@ from cmk.gui.plugins.metrics.utils import (
 metric_info['latest_stable_patch'] = {
     'title': _('Latest stable'),
     'unit': 'count',
-    'color': '11/a',
+    'color': '26/a',
 }
 
 metric_info['old_stable_patch'] = {
     'title': _('Old stable'),
     'unit': 'count',
-    'color': '31/a',
+    'color': '16/b',
 }
 
 metric_info['stable_patch'] = {
@@ -45,8 +45,8 @@ graph_info['checkmk_update_patch_level'] = {
     'title': _('CheckMK patch level release history'),
     'metrics': [
         # ('appliance_patch', '-area'),
-        ('old_stable_patch', 'area'),
-        ('latest_stable_patch', '-area'),
+        ('old_stable_patch', '-area'),
+        ('latest_stable_patch', 'area'),
     ],
     'optional_metrics': [
         'latest_stable_patch',
