@@ -11,3 +11,4 @@
             before updating to this version remove the special agent version (rules + package)
 2023-03-19: added support for appliance firmware version
 2023-03-28: added Checkmk Cloud Edition
+2023-04-11: added support for beta/inovation branch, minor changes in the output
