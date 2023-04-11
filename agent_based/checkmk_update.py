@@ -21,6 +21,7 @@
 #             before updating to this version remove the special agent version (rules + package)
 # 2023-03-19: added support for appliance firmware version
 # 2023-03-28: added Checkmk Cloud Edition
+# 2023-04-11: added support for the beta release, minor changes in the output
 #
 #
 # Known issues
@@ -441,7 +442,7 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
         'cfe': 'Checkmk Enterprise Free Edition',
         'cee': 'Checkmk Enterprise Standard Edition',
         'cme': 'Checkmk Enterprise Managed Services Edition',
-        'cce': 'Checkmk Checkmk Cloud Edition',
+        'cce': 'Checkmk Cloud Edition',
     }
 
     classes = {
@@ -485,35 +486,45 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
 
     yield Result(
         state=State.OK,
-        summary=f'{edition.upper()} {checkmk_version}, on {distro.get("name")}',
-        details=f'{editions.get(edition, edition)} {checkmk_version}, on {distro.get("name")}'
+        summary=f'{edition.upper()} {checkmk_version}', details=f'{editions.get(edition, edition)} {checkmk_version}'
     )
-    # yield Result(state=State.OK, notice=f'Edition: {editions.get(edition, edition)}')
+    yield Result(state=State.OK, summary=f'OS: {distro.get("name")}')
 
     if not re.match(r'\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build
         cmk_base_version = checkmk_version[:5]  # works only as long there are only single digit versions
         # get release information from cmk_update_data for cmk base version
         release_info = cmk_update_data['checkmk'].get(cmk_base_version)
+        yield Result(state=State.OK, summary=f'Branch: {release_info["class"]}')
         if release_info:
-            if release_info['class'] == 'oldstable':
-                old_stable = release_info['version']
-                if checkmk_version != release_info['version']:
-                    yield Result(
-                        state=State(params['state_not_latest_base']),
-                        notice=f'Update available: {old_stable}'
-                    )
-                else:
-                    yield Result(state=State.OK, notice=f'No update for this release available')
+            if checkmk_version != release_info['version']:
+                yield Result(
+                    state=State(params['state_not_latest_base']),
+                    notice=f'Update available: {release_info["version"]}'
+                )
+            else:
+                yield Result(state=State.OK, notice=f'No update for this release available')
+            if release_info['class'] != 'stable':
                 yield Result(state=State(params['state_not_on_stable']), summary=f'Latest stable: {latest_stable}')
-            elif release_info['class'] == 'stable':
-                stable = release_info['version']
-                if checkmk_version != stable:
-                    yield Result(
-                        state=State(params['state_not_latest_base']),
-                        notice=f'Update available: {stable}'
-                    )
-                else:
-                    yield Result(state=State.OK, notice=f'No update available')
+
+            # if release_info['class'] == 'oldstable':
+            #     old_stable = release_info['version']
+            #     if checkmk_version != release_info['version']:
+            #         yield Result(
+            #             state=State(params['state_not_latest_base']),
+            #             notice=f'Update available: {old_stable}'
+            #         )
+            #     else:
+            #         yield Result(state=State.OK, notice=f'No update for this release available')
+            #     yield Result(state=State(params['state_not_on_stable']), summary=f'Latest stable: {latest_stable}')
+            # elif release_info['class'] == 'stable':
+            #     stable = release_info['version']
+            #     if checkmk_version != stable:
+            #         yield Result(
+            #             state=State(params['state_not_latest_base']),
+            #             notice=f'Update available: {stable}'
+            #         )
+            #     else:
+            #         yield Result(state=State.OK, notice=f'No update available')
         else:
             yield Result(
                 state=State(params['state_on_unsupported']),
@@ -569,14 +580,14 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
         if file:
             url = f'{download_url_base}/{latest_version}/{file}'
         else:
-            url = f'no download available for your distribution ({cmk_code}).'
+            url = f'no download available for your edition/distribution/branch ({edition.upper()}/{cmk_code}/{release_class}).'
 
         yield Result(
             state=State.OK,
             notice=f'{branch}: '
                    f'Release date: {release_date}, '
-                   f'State: {release_class}, '
-                   f'Latest version: {latest_version},'
+                   f'Branch: {release_class}, '
+                   f'Latest version: {latest_version}, '
                    f'URL: {url}'
         )
 
