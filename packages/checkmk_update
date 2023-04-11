@@ -10,8 +10,12 @@
                 '\n'
                 'This Plugin needs a check-mk agent version 2.0.0 or greater. '
                 'Additional the HW/SW inventory must be active (to get OS and '
-                "OMD site info's).\n",
- 'download_url': 'https://thl-cmk.hopto.org',
+                "OMD site info's).\n"
+                '\n'
+                'Note: before updating from the special agent based version of '
+                'this plugin,  remove the old package completely (rules and '
+                'package) please.\n',
+ 'download_url': 'https://thl-cmk.hopto.org/gitlab/checkmk/checkmk_update',
  'files': {'agent_based': ['checkmk_update.py'],
            'web': ['plugins/metrics/checkmk_update.py',
                    'plugins/wato/checkmk_update.py']},

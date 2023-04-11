@@ -505,26 +505,6 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
                 yield Result(state=State.OK, notice=f'No update for this release available')
             if release_info['class'] != 'stable':
                 yield Result(state=State(params['state_not_on_stable']), summary=f'Latest stable: {latest_stable}')
-
-            # if release_info['class'] == 'oldstable':
-            #     old_stable = release_info['version']
-            #     if checkmk_version != release_info['version']:
-            #         yield Result(
-            #             state=State(params['state_not_latest_base']),
-            #             notice=f'Update available: {old_stable}'
-            #         )
-            #     else:
-            #         yield Result(state=State.OK, notice=f'No update for this release available')
-            #     yield Result(state=State(params['state_not_on_stable']), summary=f'Latest stable: {latest_stable}')
-            # elif release_info['class'] == 'stable':
-            #     stable = release_info['version']
-            #     if checkmk_version != stable:
-            #         yield Result(
-            #             state=State(params['state_not_latest_base']),
-            #             notice=f'Update available: {stable}'
-            #         )
-            #     else:
-            #         yield Result(state=State.OK, notice=f'No update available')
         else:
             yield Result(
                 state=State(params['state_on_unsupported']),
