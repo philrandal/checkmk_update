@@ -18,7 +18,7 @@ For the check plugin to work
 
 ---
 ### Download
-* [checkmk_update.mkp](https://thl-cmk.hopto.org/gitlab/checkmk/checkmk_update/-/raw/master/checkmk_update.mkp "Download the MKP file")
+* [checkmk_update.mkp](https://thl-cmk.hopto.org/gitlab/checkmk/checkmk_update/-/raw/master/checkmk_update.mkp "Download latest version")
 
 ---
 ### Installation
