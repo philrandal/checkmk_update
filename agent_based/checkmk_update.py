@@ -22,7 +22,7 @@
 # 2023-03-19: added support for appliance firmware version
 # 2023-03-28: added Checkmk Cloud Edition
 # 2023-04-11: added support for the beta release, minor changes in the output
-# 2023-05-19: changed metric date form stable/old stable to cmk/cfw main version
+# 2023-05-19: changed metric data form stable/old stable to cmk/cfw main version
 #
 #
 # Known issues
