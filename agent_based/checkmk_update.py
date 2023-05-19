@@ -22,6 +22,7 @@
 # 2023-03-19: added support for appliance firmware version
 # 2023-03-28: added Checkmk Cloud Edition
 # 2023-04-11: added support for the beta release, minor changes in the output
+# 2023-05-19: changed metric date form stable/old stable to cmk/cfw main version
 #
 #
 # Known issues
@@ -369,6 +370,7 @@ def _get_distro(lnx_distro) -> Dict[str, str]:
 def _get_dat_from_checkmk(cache_file: str, timeout: int) -> str:
     url = 'https://download.checkmk.com/stable_downloads.json'
 
+    # ToDo: add error handling (i.e.: ConnectionError)
     response = requests.get(
         url=url,
         timeout=timeout,
@@ -482,7 +484,7 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
             classes[_class]['latest_version'] = cmk_update_data['checkmk'][classes[_class]['latest_branch']]['version']
 
     latest_stable = classes['stable']['latest_version']
-    latest_old_stable = classes['oldstable']['latest_version']
+    # latest_old_stable = classes['oldstable']['latest_version']
 
     yield Result(
         state=State.OK,
@@ -519,6 +521,12 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
         cfw_current = distro['version']
         cfw_current_main = '.'.join(cfw_current.split('.')[:2])
         for version in cmk_update_data['appliance']:
+            # add a litle appliance patch history
+            yield Metric(
+                value=int(version.split('.')[-1]),
+                name=f'appliance_{"_".join(version.split(".")[:2])}',
+                boundaries=(0, None)
+            )
             if version.startswith(cfw_current_main):
                 cfw_current_latest = version
             if version > cfw_latest:
@@ -570,13 +578,12 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
                    f'Latest version: {latest_version}, '
                    f'URL: {url}'
         )
-
-    # add patch level as metric to have a litle release history
-    if len(latest_stable) == 5:
-        latest_stable += 'p00'  # check for initial release (no patch level)
-    yield Metric(value=int(latest_stable.split('p')[-1]), name='latest_stable_patch', boundaries=(0, None))
-    yield Metric(value=int(latest_old_stable.split('p')[-1]), name='old_stable_patch', boundaries=(0, None))
-    # yield Metric(value=int(appliance.split('.')[-1]), name='appliance_patch', boundaries=(0, None))
+        # add a little patch history
+        yield Metric(
+            value=int(latest_version.split('p')[-1].split('b')[-1].split('i')[-1].split('.')[-1]),
+            name=f'cmk_branch_{branch.replace(".", "_")}',
+            boundaries=(0, None)
+        )
 
 
 register.check_plugin(
