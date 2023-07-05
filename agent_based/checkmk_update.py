@@ -23,7 +23,7 @@
 # 2023-03-28: added Checkmk Cloud Edition
 # 2023-04-11: added support for the beta release, minor changes in the output
 # 2023-05-19: changed metric data form stable/old stable to cmk/cfw main version
-#
+# 2023-07-06: changed position of items in detailed output
 #
 # Known issues
 # for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
@@ -573,9 +573,9 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
         yield Result(
             state=State.OK,
             notice=f'{branch}: '
+                   f'Latest version: {latest_version}, '
                    f'Release date: {release_date}, '
                    f'Branch: {release_class}, '
-                   f'Latest version: {latest_version}, '
                    f'URL: {url}'
         )
         # add a little patch history
