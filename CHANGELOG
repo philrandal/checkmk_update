@@ -14,3 +14,4 @@
 2023-04-11: added support for beta/inovation branch, minor changes in the output
 2023-05-19: changed metric data form stable/old stable to cmk/cfw main version
 2023-07-06: moved to various
+2023-07-06: changed position of items in detailed output
