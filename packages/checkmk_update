@@ -15,7 +15,7 @@
                 'Note: before updating from the special agent based version of '
                 'this plugin,  remove the old package completely (rules and '
                 'package) please.\n',
- 'download_url': 'https://thl-cmk.hopto.org/gitlab/checkmk/checkmk_update',
+ 'download_url': 'https://thl-cmk.hopto.org/gitlab/checkmk/various/checkmk_update',
  'files': {'agent_based': ['checkmk_update.py'],
            'web': ['plugins/metrics/checkmk_update.py',
                    'plugins/wato/checkmk_update.py']},
