@@ -24,134 +24,18 @@
 # 2023-04-11: added support for the beta release, minor changes in the output
 # 2023-05-19: changed metric data form stable/old stable to cmk/cfw main version
 # 2023-07-06: changed position of items in detailed output
+# 2023-07-07: added support for AlmaLinux and Rocky Linux
+# 2023-07-08: added support for ol -> Oracle Linux
+# 2023-07-10: added support for rhel -> Red Hat Enterprise Linux. THX to Rickard Eriksson
 #
 # Known issues
 # for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
 # moves the distro parsing in lnx_distro to the parsing function where it belongs.
+# 2023-07-08:
+# opened PR610 https://github.com/Checkmk/checkmk/pull/610
+#
 
 
-# sample agent output
-# {
-#     "version": 1,
-#     "checkmk": {
-#         "2.1.0": {
-#             "version": "2.1.0",
-#             "release_date": 1653379969,
-#             "class": "stable",
-#             "editions": {
-#                 "cme": {
-#                     "cma-3": [
-#                         "check-mk-managed-2.1.0-3-x86_64.cma",
-#                         "bc05572179302ef798eea2f80aca6d6c84a453afcf3ba9daeb14b3bae1ed5243"
-#
-#                     "el8": [
-#                         "check-mk-managed-2.1.0-el8-38.x86_64.rpm",
-#                         "3821eb16e31a4aecfc31a09488e7c3c3f9097adf55c29efa0fd5bab742e431be"
-#                     ],
-#                     "sles15sp3": [
-#                         "check-mk-managed-2.1.0-sles15sp3-38.x86_64.rpm",
-#                         "7b41935ca0468dfc4217ab836d4a0b7ad982b846a5be24041ecb282ef3d131bb"
-#                     ],
-#                     "bullseye": [
-#                         "check-mk-managed-2.1.0_0.bullseye_amd64.deb",
-#                         "2003fc551b3317efbfc45d53ebd78807c07a72d90bffa9489c81ce78b5cd7e3b"
-#                     ],
-#                     "focal": [
-#                         "check-mk-managed-2.1.0_0.focal_amd64.deb",
-#                         "352e28e459fe3f1129c6d59f544b4a0a036e89a0449ead682d6960405e44e937"
-#                     ],
-#                     "docker": [
-#                         "check-mk-managed-docker-2.1.0.tar.gz"
-#                     ],
-#                     ...
-#                 },
-#                 "cre": {
-#                     ...
-#                 },
-#                 "cfe": {
-#                     ...
-#                 },
-#                 "cee": {
-#                     ...
-#                 }
-#             }
-#         },
-#         "2.0.0": {
-#             "version": "2.0.0p25",
-#             "release_date": 1653503541,
-#             "class": "oldstable",
-#             "editions": {
-#                 "cme": {
-#                     ...
-#                 },
-#                 "cee": {
-#                     ...
-#                 },
-#                 "cre": {
-#                     ...
-#                 },
-#                 "cfe": {
-#                     ...
-#                 }
-#             }
-#         },
-#         "1.6.0": {
-#             "version": "1.6.0p28",
-#             "release_date": 1646148925,
-#             "class": "oldstable",
-#             "editions": {
-#                 "cme": {
-#                     ...
-#                 },
-#                 "cee": {
-#                    ...
-#                 },
-#                 "cre": {
-#                    ...
-#                 },
-#                 "cfe": {
-#                    ...
-#                 }
-#             }
-#         }
-#     },
-#     "appliance": {
-#         "1.5.1": {
-#             "cfw": [
-#                 "cma-1.5.1.cfw",
-#                 "5aa89eb62d6720d5f17a95bb7ad2014f63a8c17b421e209f8a9431aa84265144"
-#             ],
-#             "ova": ["virt1-1.5.1.ova",
-#                     "bd1558c21458a81f36391ff682c3e9c76753c25f026c92a043b53e28e079a9f6"
-#                     ],
-#             "cfw_demo": [
-#                 "cma-demo-1.5.1.cfw",
-#                 "1d984b7ace7c1a1e288608be666dbd6e9eb44f851f9c141b6586e16ad2b88fb1"
-#             ],
-#             "ova_demo": [
-#                 "virt1-demo-1.5.1.ova",
-#                 "393796802f0ffdd6cbb2b406993746794f2cfd6605853a6a108b0ffda6e56008"
-#             ]
-#         },
-#         "1.4.19": {
-#             "cfw": [
-#                 "cma-1.4.19.cfw", "008961b71df0bfde97809f6540c303776604fae742941a3781e9547b429510d4"
-#             ],
-#             "ova": [
-#                 "virt1-1.4.19.ova", "417b9b25793a63b3bd9a56527a63ec83ad885e09712b164deea25e09b43b9565"
-#             ],
-#             "cfw_demo": [
-#                 "cma-demo-1.4.19.cfw",
-#                 "77fc0260d49d68e9bbe7eba981760ed6bd10e3cf8920f0615ade638a7379f5a3"
-#             ],
-#             "ova_demo": [
-#                 "virt1-demo-1.4.19.ova",
-#                 "fcb3aeadcd77afaefa3de1867b91090a26840689b2d920fa3a5249c196ed88b2"
-#             ]
-#         }
-#     }
-# }
-#
 import re
 import json
 import time
@@ -349,20 +233,21 @@ def _get_distro(lnx_distro) -> Dict[str, str]:
     for file_name, handler in _HANDLERS:
         if file_name in lnx_distro:
             distro = dict(handler(lnx_distro[file_name]))
-            if distro['vendor'].lower() in ['centos', 'red hat']:
-                distro['cmk_code'] = f'el{distro["version"]}'
+            distro['cmk_code'] = 'unknown'
+            # ol -> Oracle Linux
+            if distro['vendor'].lower() in ['centos', 'red hat', 'rhel', 'ol', 'almalinux', 'rocky', 'ol']:
+                distro['cmk_code'] = f'el{distro["version"].split(".")[0]}'
             elif 'suse' in distro['vendor'].lower():
                 try:
                     major, minor = distro['version'].split('.')
                     distro['cmk_code'] = f'sles{major}sp{minor}'
                 except ValueError:
                     distro['cmk_code'] = f'sles{distro["version"]}'
-            elif distro['vendor'].lower() == 'tribe29 gmbh':
+            elif distro['vendor'].lower() in ['tribe29 gmbh', 'checkmk gmbh']:
                 if distro['version'] < '1.5':
                     distro['cmk_code'] = 'cma-2'
                 else:
                     distro['cmk_code'] = 'cma-3'
-
             return distro
     return {}
 
@@ -568,7 +453,8 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
         if file:
             url = f'{download_url_base}/{latest_version}/{file}'
         else:
-            url = f'no download available for your edition/distribution/branch ({edition.upper()}/{cmk_code}/{release_class}).'
+            _message = 'no download available for your edition/distribution/branch'
+            url = f'{_message} ({edition.upper()}/{cmk_code}/{release_class}).'
 
         yield Result(
             state=State.OK,
