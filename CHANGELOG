@@ -15,3 +15,6 @@
 2023-05-19: changed metric data form stable/old stable to cmk/cfw main version
 2023-07-06: moved to various
 2023-07-06: changed position of items in detailed output
+2023-07-07: added support for AlmaLinux and Rocky Linux
+2023-07-08: added support for ol -> Oracle Linux
+2023-07-10: added support for rhel -> Red Hat Enterprise Linux. THX to Rickard Eriksson
