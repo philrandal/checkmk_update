@@ -19,14 +19,24 @@ For the check plugin to work
 
 ---
 ### Download
+
 * [Download latest mkp file][PACKAGE]
+
+**Note**: before you update to a newer version, alway check the [CHANGELOG](CHANGELOG). There migth be incompatible changes.
 
 ---
 ### Installation
 
-You can install the package by uploading it to your CheckMK site and as site user run `mkp install checkmk_update.mkp`.
-
-In the Enterprise/Free edition of CheckMK you can use the GUI to install the package (_Setup_ -> _Extension Packages_ -> _Upload package_)
+You can install the package by uploading it to your CheckMK site and as site user run 
+```
+mkp install PACKAGENAME-VERSION.mkp
+```
+or beginning with CMK2.2.x
+```
+mkp add PACKAGENAME-VERSION.mkp
+mkp enable PACKAGENAME VERSION
+```
+In the non RAW editions of CheckMK you can use the GUI to install the package (_Setup_ -> _Extension Packages_ -> _Upload package_)
 
 ---
 #### Want to contribute?
@@ -55,8 +65,10 @@ The plugin creates the service **_Checkmk Update_** with the CMK site name as th
 
 | Metric | Unit | Perfometer | |
 | ------ | ------ | ------ | ----- |
-| Latest stable | count | no | Patchlevel of latest sable version |
-| Old stable | count | no | Patchlevel of latest old stable version |
+| 1.6.0 | count | no | Patchlevel of CMK version 1.6.0 |
+| 2.0.0 | count | no | Patchlevel of CMK version 2.0.0 |
+| 2.1.0 | count | no | Patchlevel of CMK version 2.1.0 |
+| 2.2.0 | count | no | Patchlevel of CMK version 2.2.0 |
 
 </details>
 
@@ -84,9 +96,9 @@ The plugin creates the service **_Checkmk Update_** with the CMK site name as th
 ---
 Sample output
 
-![sample output](/doc/sample.png?raw=true "sample output")
+![sample output](/img/sample.png?raw=true "sample output")
 
 
 Sample details output
 
-![sample details output](/doc/sample-details.png?raw=true "sample details output")
+![sample details output](/img/sample-details.png?raw=true "sample details output")
