@@ -27,7 +27,9 @@
 # 2023-07-07: added support for AlmaLinux and Rocky Linux
 # 2023-07-08: added support for ol -> Oracle Linux
 # 2023-07-10: added support for rhel -> Red Hat Enterprise Linux. THX to Rickard Eriksson
-# 2024-01-01: fixed missing CMK download URL
+# 2024-01-01: fixed missing CMK download URL in service details
+# 2024-01-01: moved WATO/metrics from ~/local/share/check_mk/web/.. to ~/var/lib/checkmk/gui/.. for CMK 2.2.0
+
 # Known issues
 # for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
 # moves the distro parsing in lnx_distro to the parsing function where it belongs.
