@@ -1,0 +1,27 @@
+{'author': 'Th.L. (thl-cmk[at]outlook[dot]com)',
+ 'description': 'Check the update status of CMK sites and CMK appliance '
+                'firmware. \n'
+                'Uses the data from '
+                'https://download.checkmk.com/stable_downloads.json.\n'
+                '\n'
+                'THX to baris.leenders[at]tribe29 for providing this data and '
+                'martin.hirschvogel[at]tribe29 for supporting this '
+                'development.\n'
+                '\n'
+                'This Plugin needs a check-mk agent version 2.0.0 or greater. '
+                'Additional the HW/SW inventory must be active (to get OS and '
+                "OMD site info's).\n"
+                '\n'
+                'Note: before updating from the special agent based version of '
+                'this plugin,  remove the old package completely (rules and '
+                'package) please.\n',
+ 'download_url': 'https://thl-cmk.hopto.org/gitlab/checkmk/checkmk_update',
+ 'files': {'agent_based': ['checkmk_update.py'],
+           'web': ['plugins/metrics/checkmk_update.py',
+                   'plugins/wato/checkmk_update.py']},
+ 'name': 'checkmk_update',
+ 'title': 'Checkmk Update',
+ 'version': '0.1.4-20240101',
+ 'version.min_required': '2.0.0b1',
+ 'version.packaged': '2.2.0p14',
+ 'version.usable_until': None}
