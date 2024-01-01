@@ -19,3 +19,5 @@
 2023-07-08: added support for ol -> Oracle Linux
 2023-07-10: added support for rhel -> Red Hat Enterprise Linux. THX to Rickard Eriksson
 2024-01-01: fixed missing download CMK URL in service details
+            moved WATO/metrics from ~/local/share/check_mk/web/.. to ~/var/lib/checkmk/gui/.. for CMK 2.2.0
+            METRICS: prepared for CMK 2.3.0
