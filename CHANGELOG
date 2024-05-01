@@ -21,3 +21,4 @@
 2024-01-01: fixed missing download CMK URL in service details
             moved WATO/metrics from ~/local/share/check_mk/web/.. to ~/var/lib/checkmk/gui/.. for CMK 2.2.0
             METRICS: prepared for CMK 2.3.0
+2024-04-30: refactoring for CMK 2.3.0 (adjusted to new section_lnx_distro format only)
