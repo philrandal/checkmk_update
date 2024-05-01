@@ -29,23 +29,25 @@
 # 2023-07-10: added support for rhel -> Red Hat Enterprise Linux. THX to Rickard Eriksson
 # 2024-01-01: fixed missing CMK download URL in service details
 # 2024-01-01: moved WATO/metrics from ~/local/share/check_mk/web/.. to ~/var/lib/checkmk/gui/.. for CMK 2.2.0
+# 2024-04-30: refactoring for CMK 2.3.0 (adjusted to new section_lnx_distro format only)
 
-# Known issues
+# Known issues -> resolved :-)
 # for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
 # moves the distro parsing in lnx_distro to the parsing function where it belongs.
 # 2023-07-08:
 # opened PR610 https://github.com/Checkmk/checkmk/pull/610 --> closed unmerged
-#
+# 2023-10-20: Merged/Adjusted by Moritz: https://github.com/Checkmk/checkmk/commit/e0ee2bad5914013cbf7b3c9b5b31a479fa4d2837
 
+# sample lnx_distro section
+# # {'name': 'Debian GNU/Linux 12 (bookworm)', 'version': '12', 'code_name': 'Bookworm', 'vendor': 'Debian'}
 
 import re
 import json
 import time
 import os
 
-# import cmk.base.packaging
 import requests
-from typing import Dict, Final, Iterable, Mapping, Optional, Tuple, List, Any
+from typing import Dict, Any
 from cmk.base.plugins.agent_based.agent_based_api.v1 import (
     register,
     Result,
@@ -57,200 +59,8 @@ from cmk.base.plugins.agent_based.agent_based_api.v1 import (
 from cmk.base.plugins.agent_based.agent_based_api.v1.type_defs import (
     DiscoveryResult,
     CheckResult,
-    StringTable,
+
 )
-
-#
-#  code from lnx_distro.py start
-#
-
-
-_KVPairs = Iterable[Tuple[str, str]]
-_Line = List[str]
-
-Section = Mapping[str, _Line]
-
-
-def _parse_lnx_distro(string_table: StringTable) -> Section:
-    parsed: Dict[str, List[str]] = {}
-    filename = None
-    for line in string_table:
-        if line[0].startswith("[[[") and line[0].endswith("]]]"):
-            filename = line[0][3:-3]
-        elif filename is not None:
-            parsed.setdefault(filename, line)
-        elif filename is None:
-            # stay compatible to older versions of output
-            parsed.setdefault(line[0], line[1:])
-    return parsed
-
-
-def inv_lnx_parse_os(line: _Line) -> _KVPairs:
-    for entry in line:
-        if entry.count("=") == 0:
-            continue
-        k, v = [x.replace('"', "") for x in entry.split("=", 1)]
-        if k == "VERSION_ID":
-            yield "version", v
-        elif k == "PRETTY_NAME":
-            yield "name", v
-        elif k == "VERSION_CODENAME":
-            yield "code_name", v.title()
-        elif k == "ID":
-            yield "vendor", v.title()
-
-
-_SUSE_CODE_NAMES: Final = {
-    "11.2": "Emerald",
-    "11.3": "Teal",
-    "11.4": "Celadon",
-    "12.1": "Asparagus",
-    "12.2": "Mantis",
-    "12.3": "Darthmouth",
-    "13.1": "Bottle",
-}
-
-
-def inv_lnx_parse_suse(line: _Line) -> _KVPairs:
-    major = line[1].split()[-1]
-    if len(line) >= 3:
-        patchlevel = line[2].split()[-1]
-    else:
-        patchlevel = "0"
-
-    version = "%s.%s" % (major, patchlevel)
-
-    yield "vendor", "SuSE"
-    yield "version", version
-    yield "name", "%s.%s" % (line[0].split("(")[0].strip(), patchlevel)
-
-    if (code_name := _SUSE_CODE_NAMES.get(version)) is not None:
-        yield "code_name", code_name
-
-
-def inv_lnx_parse_redhat(line: _Line) -> _KVPairs:
-    entry = line[0]
-    if entry.startswith("Oracle"):
-        yield from inv_lnx_parse_oracle_vm_server(line)
-    else:
-        parts = entry.split("(")
-        left = parts[0].strip()
-        # if codename "(CODENAME)" is present, list looks like
-        # ['Red Hat Enterprise Linux Server release 6.7 ', 'Santiago)']
-        if len(parts) == 2:
-            yield "code_name", parts[1].rstrip(")")
-        name, _release, version = left.rsplit(None, 2)
-        if name.startswith("Red Hat"):
-            yield "vendor", "Red Hat"
-        yield "version", version
-        yield "name", left
-
-
-def inv_lnx_parse_oracle_vm_server(line: _Line) -> _KVPairs:
-    parts = line[0].split(" ")
-    yield "vendor", parts.pop(0)
-    yield "version", parts.pop(-1)
-    yield "name", " ".join(parts[:-1])
-
-
-def inv_lnx_parse_lsb(line: _Line) -> _KVPairs:
-    for entry in line:
-        varname, value = entry.split("=", 1)
-        value = value.strip("'").strip('"')
-        if varname == "DISTRIB_ID":
-            yield "vendor", value
-        elif varname == "DISTRIB_RELEASE":
-            yield "version", value
-        elif varname == "DISTRIB_CODENAME":
-            yield "code_name", value.title()
-        elif varname == "DISTRIB_DESCRIPTION":
-            yield "name", value
-
-
-_DEBIAN_CODE_NAMES: Final = (
-    ("2.0.", "Hamm"),
-    ("2.1.", "Slink"),
-    ("2.2.", "Potato"),
-    ("3.0.", "Woody"),
-    ("3.1.", "Sarge"),
-    ("4.", "Etch"),
-    ("5.", "Lenny"),
-    ("6.", "Squeeze"),
-    ("7.", "Wheezy"),
-    ("8.", "Jessie"),
-    ("9.", "Stretch"),
-    ("10.", "Buster"),
-    ("11.", "Bullseye"),
-)
-
-
-# Do not overwrite Ubuntu information
-def inv_lnx_parse_debian(line: _Line) -> _KVPairs:
-    entry = line[0]
-    yield "name", "Debian " + entry
-    yield "vendor", "Debian"
-    yield "version", entry
-
-    for prefix, code_name in _DEBIAN_CODE_NAMES:
-        if entry.startswith(prefix):
-            yield "code_name", code_name
-            return
-
-
-def inv_lnx_parse_cma(line: _Line) -> _KVPairs:
-    yield "name", "Checkmk Appliance " + line[0]
-    yield "vendor", "tribe29 GmbH"
-    yield "version", line[0]
-    yield "code_name", None
-
-
-def inv_lnx_parse_gentoo(line: _Line) -> _KVPairs:
-    entry = line[0]
-    yield "name", entry
-    yield "vendor", "Gentoo"
-    parts = entry.split(" ")
-    yield "version", parts.pop(-1)
-    yield "code_name", None
-
-
-_HANDLERS: Final = (
-    ("/usr/share/cma/version", inv_lnx_parse_cma),
-    ("/etc/os-release", inv_lnx_parse_os),
-    ("/etc/gentoo-release", inv_lnx_parse_gentoo),
-    ("/etc/SuSE-release", inv_lnx_parse_suse),
-    ("/etc/oracle-release", inv_lnx_parse_oracle_vm_server),
-    ("/etc/redhat-release", inv_lnx_parse_redhat),
-    ("/etc/lsb-release", inv_lnx_parse_lsb),
-    ("/etc/debian_version", inv_lnx_parse_debian),
-)
-
-#
-#  code from lnx_distro.py end
-#
-
-
-def _get_distro(lnx_distro) -> Dict[str, str]:
-    if isinstance(lnx_distro, list):
-        lnx_distro = _parse_lnx_distro(lnx_distro)
-    for file_name, handler in _HANDLERS:
-        if file_name in lnx_distro:
-            distro = dict(handler(lnx_distro[file_name]))
-            # ol -> Oracle Linux
-            if distro['vendor'].lower() in ['centos', 'red hat', 'rhel', 'ol', 'almalinux', 'rocky']:
-                distro['cmk_code'] = f'el{distro["version"].split(".")[0]}'
-            elif distro['vendor'].lower() in ['suse']:
-                try:
-                    major, minor = distro['version'].split('.')
-                    distro['cmk_code'] = f'sles{major}sp{minor}'
-                except ValueError:
-                    distro['cmk_code'] = f'sles{distro["version"]}'
-            elif distro['vendor'].lower() in ['tribe29 gmbh', 'checkmk gmbh']:
-                if distro['version'] < '1.5':
-                    distro['cmk_code'] = 'cma-2'
-                else:
-                    distro['cmk_code'] = 'cma-3'
-            return distro
-    return {}
 
 
 def _get_dat_from_checkmk(cache_file: str, timeout: int) -> str:
@@ -271,7 +81,7 @@ def _get_dat_from_checkmk(cache_file: str, timeout: int) -> str:
         return '{}'
 
 
-def _get_cmk_update_data(timeout: int) -> Optional[Dict[str, Any]]:
+def _get_cmk_update_data(timeout: int) -> Dict[str, Any] | None:
     omd_root = os.environ['OMD_ROOT']
     cache_file = omd_root + '/tmp/check_mk/cache/cmk_downloads'
     # cache_file = omd_root + '/var/check_mk/cmk_downloads'
@@ -317,10 +127,9 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
 
     cmk_update_data = _get_cmk_update_data(params['timeout'])
 
-    distro = _get_distro(section_lnx_distro)
     used_version = site['used_version'].split('.')
     checkmk_version = '.'.join(used_version[:-1])
-    cmk_code = distro.get('cmk_code', distro.get('code_name'))
+    cmk_code = section_lnx_distro.get('cmk_code', section_lnx_distro.get('code_name'))
     edition = used_version[-1]
 
     download_url_base = 'https://download.checkmk.com/checkmk'
@@ -376,7 +185,7 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
         state=State.OK,
         summary=f'{edition.upper()} {checkmk_version}', details=f'{editions.get(edition, edition)} {checkmk_version}'
     )
-    yield Result(state=State.OK, summary=f'OS: {distro.get("name")}')
+    yield Result(state=State.OK, summary=f'OS: {section_lnx_distro.get("name")}')
 
     if not re.match(r'\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build
         cmk_base_version = checkmk_version[:5]  # works only as long there are only single digit versions
@@ -403,8 +212,8 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
 
     cfw_latest = '0.0.0'
     cfw_current_latest = '0.0.0'
-    if distro['name'].lower().startswith('checkmk appliance'):
-        cfw_current = distro['version']
+    if section_lnx_distro['name'].lower().startswith('checkmk appliance'):
+        cfw_current = section_lnx_distro['version']
         cfw_current_main = '.'.join(cfw_current.split('.')[:2])
         for version in cmk_update_data['appliance']:
             # add a litle appliance patch history
