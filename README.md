@@ -96,9 +96,9 @@ The plugin creates the service **_Checkmk Update_** with the CMK site name as th
 ---
 Sample output
 
-![sample output](/img/sample.png?raw=true "sample output")
+![sample output](img/sample.png?raw=true "sample output")
 
 
 Sample details output
 
-![sample details output](/img/sample-details.png?raw=true "sample details output")
+![sample details output](img/sample-details.png?raw=true "sample details output")
