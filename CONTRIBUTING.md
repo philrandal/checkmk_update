@@ -1,14 +1,15 @@
 # Contributing
 
-If you have any issues or ideas for improvement you can send me an email to _thl-cmk[at]outlook[dot]com_.
+If you have any issues or ideas for improvement you can contact me in the [CMK forum](https://forum.checkmk.com/) by sending me a direct message to `@thl-cmk` (this is the prefered way) or send an email to _thl-cmk[at]outlook[dot]com_.
 
-For some fixes/improvements I migth need the raw output of the _**lnx_distro**_ and _**omd_info**_ section from the check_mk agent.
+Please include:
+- your CMK version/edition
+- your environment (stand alone or distributed)
+- the OS of your CMK server(s)
+- the version of the plugin
+- the crash report (if any)
 
-I also need to know the following:
-- version/edition of check_mk you are using
-- version of the check_mk agent you are using
-- version/platform of the target system
-
+For agent based plugins I might need also the agent output of the plugin.
 
 ```
 <<<omd_info:sep(59)>>>
