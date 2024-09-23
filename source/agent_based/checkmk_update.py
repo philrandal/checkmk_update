@@ -116,7 +116,7 @@ def _get_cmk_code(lnx_distro: Mapping[str, str]) -> str | None:
     if lnx_distro['vendor'].lower() in [
             'centos', 'red hat', 'rhel', 'ol', 'almalinux', 'rocky'
     ]:
-        lnx_distro['cmk_code'] = f'el{lnx_distro["version"].split(".")[0]}'
+        return f'el{lnx_distro["version"].split(".")[0]}'
     elif lnx_distro['vendor'].lower() in ['suse', 'opensuse-leap']:
         try:
             major, minor = lnx_distro['version'].split('.')
