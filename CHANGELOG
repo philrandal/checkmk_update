@@ -22,5 +22,6 @@
             moved WATO/metrics from ~/local/share/check_mk/web/.. to ~/var/lib/checkmk/gui/.. for CMK 2.2.0
             METRICS: prepared for CMK 2.3.0
 2024-04-30: refactoring for CMK 2.3.0 (adjusted to new section_lnx_distro format only)
-2ß24-05-23: readded code to get cmk_code for ose version
+2024-05-23: readded code to get cmk_code for ose version
             added support for Opensuse-Leap
+2024:09-24: fix cmk_code return for almalinux, etc
