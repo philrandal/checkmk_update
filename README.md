@@ -22,7 +22,7 @@ For the check plugin to work
 
 * [Download latest mkp file][PACKAGE]
 
-**Note**: before you update to a newer version, alway check the [CHANGELOG](CHANGELOG). There migth be incompatible changes.
+**Note**: before you update to a newer version, alway check the [CHANGELOG](CHANGELOG). There might be incompatible changes.
 
 ---
 ### Installation
