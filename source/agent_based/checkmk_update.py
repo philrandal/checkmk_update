@@ -30,8 +30,9 @@
 # 2024-01-01: fixed missing CMK download URL in service details
 # 2024-01-01: moved WATO/metrics from ~/local/share/check_mk/web/.. to ~/var/lib/checkmk/gui/.. for CMK 2.2.0
 # 2024-04-30: refactoring for CMK 2.3.0 (adjusted to new section_lnx_distro format only)
-# 2ß24-05-23: readded code to get cmk_code for ose version
+# 2024-05-23: readded code to get cmk_code for ose version
 #             added support for Opensuse-Leap
+# 2024-09-24: fix return of cmk_code for almalinux, etc
 
 # Known issues -> resolved :-)
 # for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
