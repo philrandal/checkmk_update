@@ -39,7 +39,7 @@
 # 2023-07-08:
 # opened PR610 https://github.com/Checkmk/checkmk/pull/610 --> closed unmerged
 # 2023-10-20: Merged/Adjusted by Moritz: https://github.com/Checkmk/checkmk/commit/e0ee2bad5914013cbf7b3c9b5b31a479fa4d2837
-
+# 2024-11-16: fixed wrong return for RHEL in _get_cmk_code
 
 # sample lnx_distro section
 # # {'name': 'Debian GNU/Linux 12 (bookworm)', 'version': '12', 'code_name': 'Bookworm', 'vendor': 'Debian'}
@@ -116,7 +116,7 @@ def _get_cmk_code(lnx_distro: Mapping[str, str]) -> str | None:
     if lnx_distro['vendor'].lower() in [
             'centos', 'red hat', 'rhel', 'ol', 'almalinux', 'rocky'
     ]:
-        lnx_distro['cmk_code'] = f'el{lnx_distro["version"].split(".")[0]}'
+        return f'el{lnx_distro["version"].split(".")[0]}'
     elif lnx_distro['vendor'].lower() in ['suse', 'opensuse-leap']:
         try:
             major, minor = lnx_distro['version'].split('.')
