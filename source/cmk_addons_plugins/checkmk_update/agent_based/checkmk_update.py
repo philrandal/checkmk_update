@@ -33,6 +33,7 @@
 # 2ß24-05-23: readded code to get cmk_code for ose version
 #             added support for Opensuse-Leap
 # 2025-05-29: rewritten vor check APIv2 by timo[dot]lechleiter[at]web[dot]de)
+
 # Known issues -> resolved :-)
 # for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
 # moves the distro parsing in lnx_distro to the parsing function where it belongs.
