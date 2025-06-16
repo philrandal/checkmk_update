@@ -32,14 +32,14 @@
 # 2024-04-30: refactoring for CMK 2.3.0 (adjusted to new section_lnx_distro format only)
 # 2ß24-05-23: readded code to get cmk_code for ose version
 #             added support for Opensuse-Leap
-
+# 2025-05-29: rewritten vor check APIv2 by timo[dot]lechleiter[at]web[dot]de)
 # Known issues -> resolved :-)
 # for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
 # moves the distro parsing in lnx_distro to the parsing function where it belongs.
 # 2023-07-08:
 # opened PR610 https://github.com/Checkmk/checkmk/pull/610 --> closed unmerged
 # 2023-10-20: Merged/Adjusted by Moritz: https://github.com/Checkmk/checkmk/commit/e0ee2bad5914013cbf7b3c9b5b31a479fa4d2837
-# 2024-11-16: fixed wrong return for RHEL in _get_cmk_code
+
 
 # sample lnx_distro section
 # # {'name': 'Debian GNU/Linux 12 (bookworm)', 'version': '12', 'code_name': 'Bookworm', 'vendor': 'Debian'}
@@ -49,23 +49,19 @@ import json
 import time
 import os
 
-import requests
-from _collections_abc import Mapping
 from typing import Dict, Any
-from cmk.base.plugins.agent_based.agent_based_api.v1 import (
-    register,
+from _collections_abc import Mapping
+import requests
+
+from cmk.agent_based.v2 import (
+    CheckPlugin,
+    Service,
     Result,
     State,
-    Service,
     Metric,
 )
 
-from cmk.base.plugins.agent_based.agent_based_api.v1.type_defs import (
-    DiscoveryResult,
-    CheckResult,
-
-)
-
+from cmk.utils.paths import tmp_dir
 
 def _get_dat_from_checkmk(cache_file: str, timeout: int) -> str:
     url = 'https://download.checkmk.com/stable_downloads.json'
@@ -74,20 +70,18 @@ def _get_dat_from_checkmk(cache_file: str, timeout: int) -> str:
     response = requests.get(
         url=url,
         timeout=timeout,
-        # verify=not args.no_cert_check,
     )
     if response.status_code == 200:
         page_source = response.text
-        with open(cache_file, 'w') as f:
-            f.write(page_source)
+        with open(cache_file, 'w', encoding='utf-8') as cachefile:
+            cachefile.write(page_source)
         return page_source
-    else:
-        return '{}'
+
+    return '{}'
 
 
 def _get_cmk_update_data(timeout: int) -> Dict[str, Any] | None:
-    omd_root = os.environ['OMD_ROOT']
-    cache_file = omd_root + '/tmp/check_mk/cache/cmk_downloads'
+    cache_file = os.path.join(tmp_dir, 'cache/cmk_downloads.json')
     # cache_file = omd_root + '/var/check_mk/cmk_downloads'
     # page_source = '{}'
 
@@ -95,8 +89,8 @@ def _get_cmk_update_data(timeout: int) -> Dict[str, Any] | None:
         now_time = int(time.time())
         modify_time = int(os.path.getmtime(cache_file))
         if (now_time - modify_time) < 86400:
-            with open(cache_file, 'r') as f:
-                page_source = f.read()
+            with open(cache_file, 'r', encoding='utf-8') as cachefile:
+                page_source = cachefile.read()
         else:
             page_source = _get_dat_from_checkmk(cache_file, timeout)
     else:
@@ -114,30 +108,35 @@ def _get_cmk_code(lnx_distro: Mapping[str, str]) -> str | None:
 
     # ol -> Oracle Linux
     if lnx_distro['vendor'].lower() in [
-            'centos', 'red hat', 'rhel', 'ol', 'almalinux', 'rocky'
+        'centos', 'red hat', 'rhel', 'ol', 'almalinux', 'rocky'
     ]:
-        return f'el{lnx_distro["version"].split(".")[0]}'
-    elif lnx_distro['vendor'].lower() in ['suse', 'opensuse-leap']:
+        lnx_distro['cmk_code'] = f'el{lnx_distro["version"].split(".")[0]}'
+        return lnx_distro['cmk_code']
+
+    if lnx_distro['vendor'].lower() in ['suse', 'opensuse-leap']:
         try:
             major, minor = lnx_distro['version'].split('.')
         except ValueError:
             return f'sles{lnx_distro["version"]}'
-        else:
-            return f'sles{major}sp{minor}'
-    elif lnx_distro['vendor'].lower() in ['tribe29 gmbh', 'checkmk gmbh']:
+
+        return f'sles{major}sp{minor}'
+
+    if lnx_distro['vendor'].lower() in ['tribe29 gmbh', 'checkmk gmbh']:
         if lnx_distro['version'] < '1.5':
             return 'cma-2'
-        else:
-            return 'cma-3'
+
+        return 'cma-3'
+
+    return None
 
 
-def discovery_checkmk_update(section_lnx_distro, section_omd_info) -> DiscoveryResult:
+def discovery_checkmk_update(section_lnx_distro, section_omd_info):
     if section_omd_info is not None:
         for site in section_omd_info.get('sites', {}).keys():
             yield Service(item=site)
 
 
-def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> CheckResult:
+def check_checkmk_update(item, params, section_lnx_distro, section_omd_info):
     if not section_lnx_distro:
         yield Result(
             state=State.WARN,
@@ -205,10 +204,10 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
         else:
             classes[_class]['latest_branch'] = branch
 
-    for _class in classes.keys():
-        if classes[_class]['latest_branch']:
-            classes[_class]['latest_version'] = cmk_update_data['checkmk'][
-                classes[_class]['latest_branch']]['version']
+    for _class in classes.values():
+        if _class['latest_branch']:
+            _class['latest_version'] = cmk_update_data['checkmk'][
+                _class['latest_branch']]['version']
 
     latest_stable = classes['stable']['latest_version']
     # latest_old_stable = classes['oldstable']['latest_version']
@@ -234,7 +233,7 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
                     notice=f'Update available: {release_info["version"]}')
             else:
                 yield Result(state=State.OK,
-                             notice=f'No update for this release available')
+                             notice='No update for this release available')
             if release_info['class'] != 'stable':
                 yield Result(state=State(params['state_not_on_stable']),
                              summary=f'Latest stable: {latest_stable}')
@@ -242,7 +241,7 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
             yield Result(state=State(params['state_on_unsupported']),
                          notice=f'Unsupported version {checkmk_version}')
     else:
-        yield Result(state=State.OK, summary=f'This is a daily build of CMK')
+        yield Result(state=State.OK, summary='This is a daily build of CMK')
 
     cfw_latest = '0.0.0'
     cfw_current_latest = '0.0.0'
@@ -313,8 +312,7 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info) -> 
                      name=f'cmk_branch_{branch.replace(".", "_")}',
                      boundaries=(0, None))
 
-
-register.check_plugin(
+check_plugin_checkmk_update = CheckPlugin(
     name='checkmk_update',
     service_name='Checkmk Update %s',
     sections=['lnx_distro', 'omd_info'],
@@ -329,7 +327,6 @@ register.check_plugin(
         'state_cfw_not_latest': 1,
         'state_unknown': 1,
         'timeout': 5,
-        # 'no_cert_check': False,
     },
     check_ruleset_name='checkmk_update',
 )
