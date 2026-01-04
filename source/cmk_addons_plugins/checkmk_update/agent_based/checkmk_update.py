@@ -6,9 +6,9 @@
 # Author: thl-cmk[at]outlook[dot]com
 # URL   : https://thl-cmk.hopto.org
 # Date  : 2021-12-25
-#
+
 # Checkmk update status
-#
+
 # 2021-10-26: minor fixes (removed unused prints)
 # 2021-11-04: fixed missing "versions" key in "release" section
 # 2021-11-17: added checkmk appliance version
@@ -33,44 +33,121 @@
 # 2ß24-05-23: readded code to get cmk_code for ose version
 #             added support for Opensuse-Leap
 # 2025-05-29: rewritten vor check APIv2 by timo[dot]lechleiter[at]web[dot]de)
+# 2025-12-20: added cache_time option on a which from Checkmk
+#             added proxy, installed_patch_level
 
 # Known issues -> resolved :-)
 # for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
 # moves the distro parsing in lnx_distro to the parsing function where it belongs.
-# 2023-07-08:
-# opened PR610 https://github.com/Checkmk/checkmk/pull/610 --> closed unmerged
+# 2023-07-08: opened PR610 https://github.com/Checkmk/checkmk/pull/610 --> closed unmerged
 # 2023-10-20: Merged/Adjusted by Moritz: https://github.com/Checkmk/checkmk/commit/e0ee2bad5914013cbf7b3c9b5b31a479fa4d2837
 
 
 # sample lnx_distro section
 # # {'name': 'Debian GNU/Linux 12 (bookworm)', 'version': '12', 'code_name': 'Bookworm', 'vendor': 'Debian'}
 
-import re
 import json
-import time
 import os
-
-from typing import Dict, Any
-from _collections_abc import Mapping
+import re
+import time
 import requests
+
+from collections.abc import Mapping
+from pydantic import BaseModel
+from typing import Literal
 
 from cmk.agent_based.v2 import (
     CheckPlugin,
-    Service,
-    Result,
-    State,
+    CheckResult,
+    DiscoveryResult,
     Metric,
+    Result,
+    Service,
+    State,
 )
 
 from cmk.utils.paths import tmp_dir
 
-def _get_dat_from_checkmk(cache_file: str, timeout: int) -> str:
+# no_host_name_import = False
+# try:
+#     from cmk.base.check_api import host_name
+# except ImportError:
+#     no_host_name_import = True
+
+
+PROXY = tuple[
+    Literal['cmk_postprocessed'],
+    Literal['environment_proxy', 'no_proxy', 'stored_proxy', 'explicit_proxy'],
+    str,
+]
+
+
+class ConnectionSettings(BaseModel):
+    cache_time: int | None = 86400
+    timeout: int | None = 5
+    proxy: PROXY | None = None
+
+
+class UpdateStates(BaseModel):
+    state_cfw_not_latest: int | None = 1
+    state_cfw_not_latest_base: int | None = 1
+    state_cfw_unsupported: int | None = 2
+    state_not_latest_base: int | None = 1
+    state_not_on_stable: int | None = 1
+    state_on_unsupported: int | None = 2
+    state_unknown: int | None = 1
+
+
+class Params(BaseModel):
+    connection_settings: ConnectionSettings | None = ConnectionSettings()
+    update_states: UpdateStates | None = UpdateStates()
+    # host_name: str | None
+
+
+# from rule_set in agent_based check
+# {'proxy': ('cmk_postprocessed', 'no_proxy', '')},
+# {'proxy': ('cmk_postprocessed', 'environment_proxy', '')},
+# {'proxy': ('cmk_postprocessed', 'stored_proxy', 'vsquid')},
+# {'proxy': ('cmk_postprocessed', 'explicit_proxy', 'http://squid:8080/')},
+# in server_side_calls
+# 'proxy': NoProxy(type='no_proxy')
+# 'proxy': EnvProxy(type='env_proxy')
+# 'proxy': URLProxy(type='url_proxy', url='http://vsquid.home.intern:3128')
+# 'proxy': URLProxy(type='url_proxy', url='http://explicit.proxy8080')
+
+
+def _get_dat_from_checkmk(
+        cache_file: str,
+        timeout: int,
+        params_proxy: PROXY | None,
+) -> str:
     url = 'https://download.checkmk.com/stable_downloads.json'
+
+    match params_proxy:
+        # case ("cmk_postprocessed", "stored_proxy", str(proxy_id)):
+        #     try:
+        #         global_proxy = proxy_config.global_proxies[proxy_id]
+        #         return URLProxy(url=global_proxy["proxy_url"])
+        #     except KeyError:
+        #         config_warnings.warn(
+        #             f'The global proxy "{proxy_id}" used by host "{proxy_config.host_name}"'
+        #             " does not exist."
+        #         )
+        #         return EnvProxy()
+        case ("cmk_postprocessed", "environment_proxy", str()):
+            proxies = {}
+        case ("cmk_postprocessed", "explicit_proxy", str(url)):
+            proxies = {'https': params_proxy[2], 'http': params_proxy[2]}
+        case ("cmk_postprocessed", "no_proxy", str()):
+            proxies = {'https': '', 'http': ''}
+        case _:
+            proxies = {}
 
     # ToDo: add error handling (i.e.: ConnectionError)
     response = requests.get(
         url=url,
         timeout=timeout,
+        proxies=proxies,
     )
     if response.status_code == 200:
         page_source = response.text
@@ -81,7 +158,11 @@ def _get_dat_from_checkmk(cache_file: str, timeout: int) -> str:
     return '{}'
 
 
-def _get_cmk_update_data(timeout: int) -> Dict[str, Any] | None:
+def _get_cmk_update_data(
+        timeout: int,
+        cache_time: int,
+        proxy: PROXY | None,
+) -> dict[str, object] | None:
     cache_file = os.path.join(tmp_dir, 'cache/cmk_downloads.json')
     # cache_file = omd_root + '/var/check_mk/cmk_downloads'
     # page_source = '{}'
@@ -89,13 +170,13 @@ def _get_cmk_update_data(timeout: int) -> Dict[str, Any] | None:
     if os.path.isfile(cache_file):
         now_time = int(time.time())
         modify_time = int(os.path.getmtime(cache_file))
-        if (now_time - modify_time) < 86400:
+        if (now_time - modify_time) < cache_time:
             with open(cache_file, 'r', encoding='utf-8') as cachefile:
                 page_source = cachefile.read()
         else:
-            page_source = _get_dat_from_checkmk(cache_file, timeout)
+            page_source = _get_dat_from_checkmk(cache_file, timeout, proxy)
     else:
-        page_source = _get_dat_from_checkmk(cache_file, timeout)
+        page_source = _get_dat_from_checkmk(cache_file, timeout, proxy)
 
     try:
         return json.loads(page_source)
@@ -131,33 +212,51 @@ def _get_cmk_code(lnx_distro: Mapping[str, str]) -> str | None:
     return None
 
 
-def discovery_checkmk_update(section_lnx_distro, section_omd_info):
+def _get_patch_level(cmk_version: str) -> int:
+    return int(cmk_version.split('.')[-1].split('b')[-1].split('i')[-1].split('p')[-1])
+
+
+def discovery_checkmk_update(section_lnx_distro, section_omd_info) -> DiscoveryResult:
     if section_omd_info is not None:
         for site in section_omd_info.get('sites', {}).keys():
             yield Service(item=site)
 
 
-def check_checkmk_update(item, params, section_lnx_distro, section_omd_info):
+def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info) -> CheckResult:
+    params: Params = Params.model_validate(params)
+
+    # if no_host_name_import:
+    #     check_host: str = str(params.host_name)
+    # else:
+    #     check_host: str = host_name().strip()
+    check_host = ''
+
     if not section_lnx_distro:
         yield Result(
             state=State.WARN,
-            summary=
-            'Operating System data not found. Check if HW/SW inventory is active and the "Operating System" '
-            'data are present in the inventory. (The mk_inventory.linux agent plugin needs to be deployed).'
+            summary='Operating System data not found. Check if HW/SW inventory is active and the "Operating System" '
+                    'data are present in the inventory. (The mk_inventory.linux agent plugin needs to be deployed).'
         )
         return
 
     try:
         site = section_omd_info.get('sites')[item]
     except KeyError:
-        yield Result(state=State.UNKNOWN,
-                     summary='Item not found in agent data')
+        yield Result(
+            state=State.UNKNOWN,
+            summary='Item not found in agent data',
+        )
         return
 
-    cmk_update_data = _get_cmk_update_data(params['timeout'])
+    cmk_update_data = _get_cmk_update_data(
+        timeout=params.connection_settings.timeout,
+        cache_time=params.connection_settings.cache_time,
+        proxy=params.connection_settings.proxy,
+    )
 
     used_version = site['used_version'].split('.')
     checkmk_version = '.'.join(used_version[:-1])
+    installed_patch_level = _get_patch_level(checkmk_version)
     cmk_code = _get_cmk_code(section_lnx_distro)
     edition = used_version[-1]
 
@@ -199,8 +298,8 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info):
         classes[_class]['branches'].append(branch)
         if classes[_class]['latest_branch']:
             if cmk_update_data['checkmk'][branch][
-                    'release_date'] > cmk_update_data['checkmk'][
-                        classes[_class]['latest_branch']]['release_date']:
+                'release_date'] > cmk_update_data['checkmk'][
+                classes[_class]['latest_branch']]['release_date']:
                 classes[_class]['latest_branch'] = branch
         else:
             classes[_class]['latest_branch'] = branch
@@ -213,34 +312,51 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info):
     latest_stable = classes['stable']['latest_version']
     # latest_old_stable = classes['oldstable']['latest_version']
 
-    yield Result(state=State.OK,
-                 summary=f'{edition.upper()} {checkmk_version}',
-                 details=f'{editions.get(edition, edition)} {checkmk_version}')
-    yield Result(state=State.OK,
-                 summary=f'OS: {section_lnx_distro.get("name")}')
+    yield Result(
+        state=State.OK,
+        summary=f'{edition.upper()} {checkmk_version}',
+        details=f'{editions.get(edition, edition)} {checkmk_version}',
+    )
+    yield Result(
+        state=State.OK,
+        summary=f'OS: {section_lnx_distro.get("name")}',
+    )
 
-    if not re.match(r'\d\d\d\d\.\d\d\.\d\d$',
-                    checkmk_version):  # not daily build
-        cmk_base_version = checkmk_version[:
-                                           5]  # works only as long there are only single digit versions
+    yield Metric(
+        name='installed_patch_level',
+        value=installed_patch_level,
+        boundaries=(0, None),
+    )
+
+    if not re.match(r'\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build
+        cmk_base_version = checkmk_version[:5]  # works only as long there are only single digit versions
         # get release information from cmk_update_data for cmk base version
         release_info = cmk_update_data['checkmk'].get(cmk_base_version)
-        yield Result(state=State.OK,
-                     summary=f'Branch: {release_info["class"]}')
+        yield Result(
+            state=State.OK,
+            summary=f'Branch: {release_info["class"]}',
+        )
         if release_info:
             if checkmk_version != release_info['version']:
                 yield Result(
-                    state=State(params['state_not_latest_base']),
-                    notice=f'Update available: {release_info["version"]}')
+                    state=State(params.update_states.state_not_latest_base),
+                    notice=f'Update available: {release_info["version"]}',
+                )
             else:
-                yield Result(state=State.OK,
-                             notice='No update for this release available')
+                yield Result(
+                    state=State.OK,
+                    notice='No update for this release available',
+                )
             if release_info['class'] != 'stable':
-                yield Result(state=State(params['state_not_on_stable']),
-                             summary=f'Latest stable: {latest_stable}')
+                yield Result(
+                    state=State(params.update_states.state_not_on_stable),
+                    summary=f'Latest stable: {latest_stable}',
+                )
         else:
-            yield Result(state=State(params['state_on_unsupported']),
-                         notice=f'Unsupported version {checkmk_version}')
+            yield Result(
+                state=State(params.update_states.state_on_unsupported),
+                notice=f'Unsupported version {checkmk_version}',
+            )
     else:
         yield Result(state=State.OK, summary='This is a daily build of CMK')
 
@@ -250,32 +366,37 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info):
         cfw_current = section_lnx_distro['version']
         cfw_current_main = '.'.join(cfw_current.split('.')[:2])
         for version in cmk_update_data['appliance']:
-            # add a litle appliance patch history
-            yield Metric(value=int(version.split('.')[-1]),
-                         name=f'appliance_{"_".join(version.split(".")[:2])}',
-                         boundaries=(0, None))
+            # add a little appliance patch history
+            yield Metric(
+                value=int(version.split('.')[-1]),
+                name=f'appliance_{"_".join(version.split(".")[:2])}',
+                boundaries=(0, None),
+            )
             if version.startswith(cfw_current_main):
                 cfw_current_latest = version
             if version > cfw_latest:
                 cfw_latest = version
         if cfw_current_latest == '0.0.0':
             yield Result(
-                state=State(params['state_cfw_unsupported']),
-                notice=f'Appliance firmware {cfw_current} is unsupported')
+                state=State(params.update_states.state_cfw_unsupported),
+                notice=f'Appliance firmware {cfw_current} is unsupported',
+            )
         elif cfw_current == cfw_current_latest:
             yield Result(
                 state=State.OK,
-                notice=
-                f'Appliance firmware in line with version {cfw_current_main}')
+                notice=f'Appliance firmware in line with version {cfw_current_main}',
+            )
         else:
             yield Result(
-                state=State(params['state_cfw_not_latest_base']),
-                notice=
-                f'Appliance firmware update available {cfw_current_latest}')
+                state=State(params.update_states.state_cfw_not_latest_base),
+                notice=f'Appliance firmware update available {cfw_current_latest}',
+            )
         message = f'Latest appliance firmware {cfw_latest}'
         if cfw_current_latest < cfw_latest:
-            yield Result(state=State(params['state_cfw_not_latest']),
-                         notice=message)
+            yield Result(
+                state=State(params.update_states.state_cfw_not_latest),
+                notice=message,
+            )
         else:
             yield Result(state=State.OK, notice=message)
 
@@ -285,8 +406,7 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info):
         latest_version = cmk_update_data['checkmk'][branch]['version']
         release_class = cmk_update_data['checkmk'][branch]["class"]
         release_date = cmk_update_data['checkmk'][branch]["release_date"]
-        release_date = time.strftime('%Y-%m-%d',
-                                     time.strptime(time.ctime(release_date)))
+        release_date = time.strftime('%Y-%m-%d', time.strptime(time.ctime(release_date)))
 
         try:
             file = cmk_update_data['checkmk'][branch]['editions'][edition][
@@ -300,18 +420,21 @@ def check_checkmk_update(item, params, section_lnx_distro, section_omd_info):
             _message = 'no download available for your edition/distribution/branch'
             url = f'{_message} ({edition.upper()}/{cmk_code}/{release_class}).'
 
-        yield Result(state=State.OK,
-                     notice=f'{branch}: '
-                     f'Latest version: {latest_version}, '
-                     f'Release date: {release_date}, '
-                     f'Branch: {release_class}, '
-                     f'URL: {url}')
+        yield Result(
+            state=State.OK,
+            notice=f'{branch}: '
+                   f'Latest version: {latest_version}, '
+                   f'Release date: {release_date}, '
+                   f'Branch: {release_class}, '
+                   f'URL: {url}',
+        )
         # add a little patch history
-        yield Metric(value=int(
-            latest_version.split('p')[-1].split('b')[-1].split('i')[-1].split(
-                '.')[-1]),
-                     name=f'cmk_branch_{branch.replace(".", "_")}',
-                     boundaries=(0, None))
+        yield Metric(
+            value=_get_patch_level(latest_version),
+            name=f'cmk_branch_{branch.replace(".", "_")}',
+            boundaries=(0, None),
+        )
+
 
 check_plugin_checkmk_update = CheckPlugin(
     name='checkmk_update',
@@ -320,14 +443,10 @@ check_plugin_checkmk_update = CheckPlugin(
     discovery_function=discovery_checkmk_update,
     check_function=check_checkmk_update,
     check_default_parameters={
-        'state_on_unsupported': 2,
-        'state_not_latest_base': 1,
-        'state_not_on_stable': 1,
-        'state_cfw_unsupported': 2,
-        'state_cfw_not_latest_base': 1,
-        'state_cfw_not_latest': 1,
-        'state_unknown': 1,
-        'timeout': 5,
+        # # Don't try this hack at home, we (the Checkmk Dev team) are trained professionals.
+        # # This next entry will be postprocessed by the backend and return the Checkmk host object name.
+        # # This is not official and can vanish with every Checkmk update :-(
+        # 'host_name': ('cmk_postprocessed', 'host_name', None),
     },
     check_ruleset_name='checkmk_update',
 )

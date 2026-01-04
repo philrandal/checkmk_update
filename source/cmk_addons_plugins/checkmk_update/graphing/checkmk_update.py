@@ -18,6 +18,13 @@ from cmk.graphing.v1 import Title
 UNIT_NUMBER = Unit(DecimalNotation(''))
 
 # Metrics
+
+metric_cmk_installed_patch_level= Metric(
+    name='installed_patch_level',
+    title=Title('Installed patch level'),
+    unit=UNIT_NUMBER,
+    color=Color.GRAY,
+)
 metric_cmk_branch_1_6_0 = Metric(
     name='cmk_branch_1_6_0',
     title=Title('CMK 1.6.0'),
@@ -90,6 +97,9 @@ graph_checkmk_update_cmk = Graph(
         'cmk_branch_2_3_0',
         'cmk_branch_2_4_0',
     ],
+    compound_lines=[
+        'installed_patch_level'
+    ],
     optional=[
         'cmk_branch_1_6_0',
         'cmk_branch_2_0_0',
@@ -97,6 +107,7 @@ graph_checkmk_update_cmk = Graph(
         'cmk_branch_2_2_0',
         'cmk_branch_2_3_0',
         'cmk_branch_2_4_0',
+        'installed_patch_level',
     ],
 
     minimal_range=MinimalRange(0, 50),

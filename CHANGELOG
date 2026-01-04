@@ -25,3 +25,5 @@
 2ß24-05-23: readded code to get cmk_code for ose version
             added support for Opensuse-Leap
 2025-05-29: rewritten vor check APIv2 by timo[dot]lechleiter[at]web[dot]de)
+2025-12-20: added cache_time option on a which from Checkmk
+            added proxy, installed_patch_level
