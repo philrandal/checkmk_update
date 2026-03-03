@@ -35,6 +35,7 @@
 # 2025-05-29: rewritten vor check APIv2 by timo[dot]lechleiter[at]web[dot]de)
 # 2025-12-20: added cache_time option on a which from Checkmk
 #             added proxy, installed_patch_level
+# 2026-03-03: fixed crash on daily build version numbers (wrong regex) (ThX to @gulaschcowboy)
 
 # Known issues -> resolved :-)
 # for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
@@ -216,20 +217,20 @@ def _get_patch_level(cmk_version: str) -> int:
     return int(cmk_version.split('.')[-1].split('b')[-1].split('i')[-1].split('p')[-1])
 
 
-def discovery_checkmk_update(section_lnx_distro, section_omd_info) -> DiscoveryResult:
+def discovery_checkmk_update(section_lnx_distro, section_omd_info, section_ps) -> DiscoveryResult:
     if section_omd_info is not None:
         for site in section_omd_info.get('sites', {}).keys():
             yield Service(item=site)
 
 
-def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info) -> CheckResult:
+def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info, section_ps) -> CheckResult:
     params: Params = Params.model_validate(params)
 
-    # if no_host_name_import:
-    #     check_host: str = str(params.host_name)
-    # else:
-    #     check_host: str = host_name().strip()
-    check_host = ''
+    docker = False
+    for process, details in section_ps[1]:
+        if '/docker-entrypoint.sh' in details:
+            docker = True
+            break
 
     if not section_lnx_distro:
         yield Result(
@@ -257,8 +258,12 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
     used_version = site['used_version'].split('.')
     checkmk_version = '.'.join(used_version[:-1])
     installed_patch_level = _get_patch_level(checkmk_version)
-    cmk_code = _get_cmk_code(section_lnx_distro)
     edition = used_version[-1]
+
+    if not docker:
+        cmk_code = _get_cmk_code(section_lnx_distro)
+    else:
+        cmk_code = 'docker'
 
     download_url_base = 'https://download.checkmk.com/checkmk'
 
@@ -317,10 +322,17 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         summary=f'{edition.upper()} {checkmk_version}',
         details=f'{editions.get(edition, edition)} {checkmk_version}',
     )
-    yield Result(
-        state=State.OK,
-        summary=f'OS: {section_lnx_distro.get("name")}',
-    )
+
+    if not docker:
+        yield Result(
+            state=State.OK,
+            summary=f'OS: {section_lnx_distro.get("name")}',
+        )
+    else:
+        yield Result(
+            state=State.OK,
+            summary=f'OS: {section_lnx_distro.get("name")} on Docker',
+        )
 
     yield Metric(
         name='installed_patch_level',
@@ -328,8 +340,8 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         boundaries=(0, None),
     )
 
-    if not re.match(r'\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build
-        cmk_base_version = checkmk_version[:5]  # works only as long there are only single digit versions
+    if not re.match(r'\d\.\d\.\d-\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build (i.e. "2.5.0-2026.03.04")
+        cmk_base_version = checkmk_version[:5]  # works only as long as there are only single digit versions
         # get release information from cmk_update_data for cmk base version
         release_info = cmk_update_data['checkmk'].get(cmk_base_version)
         yield Result(
@@ -439,7 +451,7 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
 check_plugin_checkmk_update = CheckPlugin(
     name='checkmk_update',
     service_name='Checkmk Update %s',
-    sections=['lnx_distro', 'omd_info'],
+    sections=['lnx_distro', 'omd_info', 'ps'],
     discovery_function=discovery_checkmk_update,
     check_function=check_checkmk_update,
     check_default_parameters={
