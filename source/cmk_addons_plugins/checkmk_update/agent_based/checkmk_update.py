@@ -6,6 +6,7 @@
 # Author: thl-cmk[at]outlook[dot]com
 # URL   : https://thl-cmk.hopto.org
 # Date  : 2021-12-25
+# File  : ~/local/lib/python3/cmk_addons/plugins/checkmk_update/agent_based/checkmk_update.py
 
 # Checkmk update status
 
@@ -36,16 +37,17 @@
 # 2025-12-20: added cache_time option on a which from Checkmk
 #             added proxy, installed_patch_level
 # 2026-03-03: fixed crash on daily build version numbers (wrong regex) (ThX to @gulaschcowboy)
+# 2026-03-ß8: added support for global proxies (CMK 2.3/2.4/2.5)
 
 # Known issues -> resolved :-)
 # for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
 # moves the distro parsing in lnx_distro to the parsing function where it belongs.
 # 2023-07-08: opened PR610 https://github.com/Checkmk/checkmk/pull/610 --> closed unmerged
 # 2023-10-20: Merged/Adjusted by Moritz: https://github.com/Checkmk/checkmk/commit/e0ee2bad5914013cbf7b3c9b5b31a479fa4d2837
-
+# 2026-03-14: added support for global proxies
 
 # sample lnx_distro section
-# # {'name': 'Debian GNU/Linux 12 (bookworm)', 'version': '12', 'code_name': 'Bookworm', 'vendor': 'Debian'}
+# {'name': 'Debian GNU/Linux 12 (bookworm)', 'version': '12', 'code_name': 'Bookworm', 'vendor': 'Debian'}
 
 import json
 import os
@@ -68,6 +70,8 @@ from cmk.agent_based.v2 import (
 )
 
 from cmk.utils.paths import tmp_dir
+
+from cmk_addons.plugins.checkmk_update.lib.lib_global import get_global_http_proxies
 
 # no_host_name_import = False
 # try:
@@ -125,19 +129,18 @@ def _get_dat_from_checkmk(
     url = 'https://download.checkmk.com/stable_downloads.json'
 
     match params_proxy:
-        # case ("cmk_postprocessed", "stored_proxy", str(proxy_id)):
-        #     try:
-        #         global_proxy = proxy_config.global_proxies[proxy_id]
-        #         return URLProxy(url=global_proxy["proxy_url"])
-        #     except KeyError:
-        #         config_warnings.warn(
-        #             f'The global proxy "{proxy_id}" used by host "{proxy_config.host_name}"'
-        #             " does not exist."
-        #         )
-        #         return EnvProxy()
+        case ("cmk_postprocessed", "stored_proxy", str()):
+            http_proxies = get_global_http_proxies()
+            if proxy_url := http_proxies.get(params_proxy[2], {}).get('proxy_url'):  # cmk 2.3/2.4 'proxy_url': 'http://your.proxy.server:3128'
+                proxies = {'https': proxy_url, 'http': proxy_url}
+            elif proxy_config := http_proxies.get(params_proxy[2], {}).get('proxy_config'):  # cmk 2.5 'proxy_config': {'port': 3128, 'proxy_server_name': 'your.proxy.server', 'scheme': 'http'}
+                proxy_url = f'{proxy_config["scheme"]}://{proxy_config["proxy_server_name"]}:{proxy_config["port"]}'
+                proxies = {'https': proxy_url, 'http': proxy_url}
+            else:
+                proxies = {}
         case ("cmk_postprocessed", "environment_proxy", str()):
             proxies = {}
-        case ("cmk_postprocessed", "explicit_proxy", str(url)):
+        case ("cmk_postprocessed", "explicit_proxy", str()):
             proxies = {'https': params_proxy[2], 'http': params_proxy[2]}
         case ("cmk_postprocessed", "no_proxy", str()):
             proxies = {'https': '', 'http': ''}
@@ -227,10 +230,11 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
     params: Params = Params.model_validate(params)
 
     docker = False
-    for process, details in section_ps[1]:
-        if '/docker-entrypoint.sh' in details:
-            docker = True
-            break
+    if section_ps:
+        for process, details in section_ps[1]:
+            if '/docker-entrypoint.sh' in details:
+                docker = True
+                break
 
     if not section_lnx_distro:
         yield Result(

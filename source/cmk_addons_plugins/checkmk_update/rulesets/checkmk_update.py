@@ -106,7 +106,7 @@ def parameter_form_checkmk_update():
                                 ))),
                         'proxy': DictElement(
                             parameter_form=Proxy(
-                                title=Title('HTTP proxy (global configured proxy does not work right now'),
+                                title=Title('HTTP proxy'),
                                 allowed_schemas=frozenset([ProxySchema.HTTP])
                             )),
                     })),
