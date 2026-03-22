@@ -38,6 +38,7 @@
 #             added proxy, installed_patch_level
 # 2026-03-03: fixed crash on daily build version numbers (wrong regex) (ThX to @gulaschcowboy)
 # 2026-03-ß8: added support for global proxies (CMK 2.3/2.4/2.5)
+# 2026-03-22: fixed crash if version not found in update json
 
 # Known issues -> resolved :-)
 # for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
@@ -277,6 +278,12 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         'cee': 'Checkmk Enterprise Standard Edition',
         'cme': 'Checkmk Enterprise Managed Services Edition',
         'cce': 'Checkmk Cloud Edition',
+        # cmk 2.5 and up (names are also changed with cmk 2.3.0p45 and 2.4.0p24)
+        'community': 'Checkmk Community',
+        'pro': 'Checkmk Pro',
+        'ultimate': 'Checkmk Ultimate',
+        'ultimatemt': 'Checkmk Ultimate with Multi - Tenancy',
+        'cloud': 'Checkmk Cloud',
     }
 
     classes = {
@@ -344,15 +351,17 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         boundaries=(0, None),
     )
 
-    if not re.match(r'\d\.\d\.\d-\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build (i.e. "2.5.0-2026.03.04")
-        cmk_base_version = checkmk_version[:5]  # works only as long as there are only single digit versions
+    if re.match(r'\d\.\d\.\d-\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build (i.e. "2.5.0-2026.03.04")
+        yield Result(state=State.OK, summary='This is a daily build of CMK')
+    else:
+        cmk_base_version = checkmk_version[:5] # works only as long as there are only single digit versions
         # get release information from cmk_update_data for cmk base version
         release_info = cmk_update_data['checkmk'].get(cmk_base_version)
-        yield Result(
-            state=State.OK,
-            summary=f'Branch: {release_info["class"]}',
-        )
         if release_info:
+            yield Result(
+                state=State.OK,
+                summary=f'Branch: {release_info["class"]}',
+            )
             if checkmk_version != release_info['version']:
                 yield Result(
                     state=State(params.update_states.state_not_latest_base),
@@ -371,10 +380,8 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         else:
             yield Result(
                 state=State(params.update_states.state_on_unsupported),
-                notice=f'Unsupported version {checkmk_version}',
+                notice=f'Version {checkmk_version} not supported/not found in update info',
             )
-    else:
-        yield Result(state=State.OK, summary='This is a daily build of CMK')
 
     cfw_latest = '0.0.0'
     cfw_current_latest = '0.0.0'

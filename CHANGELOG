@@ -29,4 +29,5 @@
             added proxy, installed_patch_level
 2026-03-03: fixed crash on daily build version numbers (wrong regex) (ThX to @gulaschcowboy)
 2026-03-14: added support for global proxies
+# 2026-03-22: fixed crash if version not found in update json
 
