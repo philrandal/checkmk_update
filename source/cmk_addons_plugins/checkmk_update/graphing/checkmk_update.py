@@ -10,6 +10,7 @@
 # 2024-01-01: moved WATO/metrics from ~/local/share/check_mk/web/.. to ~/var/lib/checkmk/gui/.. for CMK 2.2.0
 #             metrics prepared for CMK 2.3.0
 # 2025-05-29: rewritten vor graphing APIv1 by timo[dot]lechleiter[at]web[dot]de)
+# 2026-03-23: added CMK 2.5.0 metric
 
 from cmk.graphing.v1.metrics import Metric, Color, Unit, DecimalNotation
 from cmk.graphing.v1.graphs import Graph, MinimalRange
@@ -61,6 +62,12 @@ metric_cmk_branch_2_4_0 = Metric(
     unit=UNIT_NUMBER,
     color=Color.PURPLE,
 )
+metric_cmk_branch_2_5_0 = Metric(
+    name='cmk_branch_2_5_0',
+    title=Title('CMK 2.5.0'),
+    unit=UNIT_NUMBER,
+    color=Color.DARK_YELLOW,
+)
 metric_appliance_1_5 = Metric(
     name='appliance_1_5',
     title=Title('CFW 1.5'),
@@ -96,6 +103,7 @@ graph_checkmk_update_cmk = Graph(
         'cmk_branch_2_2_0',
         'cmk_branch_2_3_0',
         'cmk_branch_2_4_0',
+        'cmk_branch_2_5_0',
     ],
     compound_lines=[
         'installed_patch_level'
@@ -107,10 +115,11 @@ graph_checkmk_update_cmk = Graph(
         'cmk_branch_2_2_0',
         'cmk_branch_2_3_0',
         'cmk_branch_2_4_0',
+        'cmk_branch_2_5_0',
         'installed_patch_level',
     ],
 
-    minimal_range=MinimalRange(0, 50),
+    minimal_range=MinimalRange(0, 60),
 )
 graph_checkmk_update_cfw = Graph(
     name='checkmk_update_cfw',

@@ -38,14 +38,16 @@
 #             added proxy, installed_patch_level
 # 2026-03-03: fixed crash on daily build version numbers (wrong regex) (ThX to @gulaschcowboy)
 # 2026-03-ß8: added support for global proxies (CMK 2.3/2.4/2.5)
+# 2026-03-14: added support for global proxies
 # 2026-03-22: fixed crash if version not found in update json
 
+# ######################################################################################################################
 # Known issues -> resolved :-)
 # for new Linux distributions (with code name) the plugin needs to be updated :-(, this will be not necessary if tribe
 # moves the distro parsing in lnx_distro to the parsing function where it belongs.
 # 2023-07-08: opened PR610 https://github.com/Checkmk/checkmk/pull/610 --> closed unmerged
 # 2023-10-20: Merged/Adjusted by Moritz: https://github.com/Checkmk/checkmk/commit/e0ee2bad5914013cbf7b3c9b5b31a479fa4d2837
-# 2026-03-14: added support for global proxies
+# ######################################################################################################################
 
 # sample lnx_distro section
 # {'name': 'Debian GNU/Linux 12 (bookworm)', 'version': '12', 'code_name': 'Bookworm', 'vendor': 'Debian'}
@@ -431,6 +433,13 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         release_date = cmk_update_data['checkmk'][branch]["release_date"]
         release_date = time.strftime('%Y-%m-%d', time.strptime(time.ctime(release_date)))
 
+        # add a little patch history
+        yield Metric(
+            value=_get_patch_level(latest_version),
+            name=f'cmk_branch_{branch.replace(".", "_")}',
+            boundaries=(0, None),
+        )
+
         try:
             file = cmk_update_data['checkmk'][branch]['editions'][edition][
                 cmk_code.lower()][0]
@@ -440,6 +449,8 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         if file:
             url = f'{download_url_base}/{latest_version}/{file}'
         else:
+            if params.get('skip_no_download_url'):
+                continue
             _message = 'no download available for your edition/distribution/branch'
             url = f'{_message} ({edition.upper()}/{cmk_code}/{release_class}).'
 
@@ -451,12 +462,7 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
                    f'Branch: {release_class}, '
                    f'URL: {url}',
         )
-        # add a little patch history
-        yield Metric(
-            value=_get_patch_level(latest_version),
-            name=f'cmk_branch_{branch.replace(".", "_")}',
-            boundaries=(0, None),
-        )
+
 
 
 check_plugin_checkmk_update = CheckPlugin(

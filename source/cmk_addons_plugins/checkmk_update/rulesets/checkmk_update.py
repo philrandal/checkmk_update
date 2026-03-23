@@ -30,6 +30,7 @@ from cmk.rulesets.v1.form_specs import (
     validators,
     Proxy,
     ProxySchema,
+    FixedValue,
 )
 from cmk.rulesets.v1.form_specs.validators import Message, ValidationError
 from cmk.rulesets.v1.rule_specs import (
@@ -110,6 +111,11 @@ def parameter_form_checkmk_update():
                                 allowed_schemas=frozenset([ProxySchema.HTTP])
                             )),
                     })),
+            'skip_no_download_url': DictElement(
+                parameter_form=FixedValue(
+                    value=True,
+                    title=Title('Dont show versions without download URL in summary')
+                )),
             'update_states': DictElement(
                 parameter_form=Dictionary(
                     title=Title('Update states'),
