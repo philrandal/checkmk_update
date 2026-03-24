@@ -40,6 +40,7 @@
 # 2026-03-ß8: added support for global proxies (CMK 2.3/2.4/2.5)
 # 2026-03-14: added support for global proxies
 # 2026-03-22: fixed crash if version not found in update json
+# 2026-03-24: fixed crash params.get('skip_no_download_url')
 
 # ######################################################################################################################
 # Known issues -> resolved :-)
@@ -109,6 +110,7 @@ class UpdateStates(BaseModel):
 class Params(BaseModel):
     connection_settings: ConnectionSettings | None = ConnectionSettings()
     update_states: UpdateStates | None = UpdateStates()
+    skip_no_download_url: bool | None
     # host_name: str | None
 
 
@@ -449,7 +451,7 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         if file:
             url = f'{download_url_base}/{latest_version}/{file}'
         else:
-            if params.get('skip_no_download_url'):
+            if params.skip_no_download_url:
                 continue
             _message = 'no download available for your edition/distribution/branch'
             url = f'{_message} ({edition.upper()}/{cmk_code}/{release_class}).'

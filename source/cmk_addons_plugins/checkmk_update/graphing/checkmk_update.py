@@ -10,7 +10,6 @@
 # 2024-01-01: moved WATO/metrics from ~/local/share/check_mk/web/.. to ~/var/lib/checkmk/gui/.. for CMK 2.2.0
 #             metrics prepared for CMK 2.3.0
 # 2025-05-29: rewritten vor graphing APIv1 by timo[dot]lechleiter[at]web[dot]de)
-# 2026-03-23: added CMK 2.5.0 metric
 
 from cmk.graphing.v1.metrics import Metric, Color, Unit, DecimalNotation
 from cmk.graphing.v1.graphs import Graph, MinimalRange
