@@ -33,14 +33,15 @@
 # 2024-04-30: refactoring for CMK 2.3.0 (adjusted to new section_lnx_distro format only)
 # 2ß24-05-23: readded code to get cmk_code for ose version
 #             added support for Opensuse-Leap
-# 2025-05-29: rewritten vor check APIv2 by timo[dot]lechleiter[at]web[dot]de)
-# 2025-12-20: added cache_time option on a which from Checkmk
+# 2025-05-29: rewritten for check APIv2 by timo[dot]lechleiter[at]web[dot]de)
+# 2025-12-20: added cache_time option
 #             added proxy, installed_patch_level
 # 2026-03-03: fixed crash on daily build version numbers (wrong regex) (ThX to @gulaschcowboy)
 # 2026-03-ß8: added support for global proxies (CMK 2.3/2.4/2.5)
 # 2026-03-14: added support for global proxies
 # 2026-03-22: fixed crash if version not found in update json
 # 2026-03-24: fixed crash params.get('skip_no_download_url')
+# 2026-04-07: fixed crash if option skip_no_download_url not set
 
 # ######################################################################################################################
 # Known issues -> resolved :-)
@@ -110,7 +111,7 @@ class UpdateStates(BaseModel):
 class Params(BaseModel):
     connection_settings: ConnectionSettings | None = ConnectionSettings()
     update_states: UpdateStates | None = UpdateStates()
-    skip_no_download_url: bool | None
+    skip_no_download_url: bool | None = False
     # host_name: str | None
 
 

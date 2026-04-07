@@ -33,3 +33,4 @@
 2026-03-23: added CMK 2.5.0 metric
 	    bump max. CMK version to 2.5.0p2
 2026-03-24: fixed crash params.get('skip_no_download_url')
+2026-04-07: fixed crash if option skip_no_download_url is not set
