@@ -41,7 +41,8 @@
 # 2026-03-14: added support for global proxies
 # 2026-03-22: fixed crash if version not found in update json
 # 2026-03-24: fixed crash params.get('skip_no_download_url')
-# 2026-04-07: fixed crash if option skip_no_download_url not set
+# 2026-04-07: fixed crash if option skip_no_download_url is not set
+# 2026-04-13: fixed crash if cmk_version is empty
 
 # ######################################################################################################################
 # Known issues -> resolved :-)
@@ -222,8 +223,9 @@ def _get_cmk_code(lnx_distro: Mapping[str, str]) -> str | None:
     return None
 
 
-def _get_patch_level(cmk_version: str) -> int:
-    return int(cmk_version.split('.')[-1].split('b')[-1].split('i')[-1].split('p')[-1])
+def _get_patch_level(cmk_version: str) -> int | None:
+    if cmk_version:
+        return int(cmk_version.split('.')[-1].split('b')[-1].split('i')[-1].split('p')[-1])
 
 
 def discovery_checkmk_update(section_lnx_distro, section_omd_info, section_ps) -> DiscoveryResult:
@@ -350,11 +352,12 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
             summary=f'OS: {section_lnx_distro.get("name")} on Docker',
         )
 
-    yield Metric(
-        name='installed_patch_level',
-        value=installed_patch_level,
-        boundaries=(0, None),
-    )
+    if installed_patch_level is not None:
+        yield Metric(
+            name='installed_patch_level',
+            value=installed_patch_level,
+            boundaries=(0, None),
+        )
 
     if re.match(r'\d\.\d\.\d-\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build (i.e. "2.5.0-2026.03.04")
         yield Result(state=State.OK, summary='This is a daily build of CMK')
@@ -437,11 +440,12 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         release_date = time.strftime('%Y-%m-%d', time.strptime(time.ctime(release_date)))
 
         # add a little patch history
-        yield Metric(
-            value=_get_patch_level(latest_version),
-            name=f'cmk_branch_{branch.replace(".", "_")}',
-            boundaries=(0, None),
-        )
+        if latest_version:
+            yield Metric(
+                value=_get_patch_level(latest_version),
+                name=f'cmk_branch_{branch.replace(".", "_")}',
+                boundaries=(0, None),
+            )
 
         try:
             file = cmk_update_data['checkmk'][branch]['editions'][edition][

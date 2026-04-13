@@ -1,4 +1,4 @@
-[PACKAGE]: ../../raw/master/mkp/checkmk_update-0.4.6-20260407.mkp "checkmk_update-0.4.6-20260407.mkp"
+[PACKAGE]: ../../raw/master/mkp/checkmk_update-0.4.7-20260413.mkp "checkmk_update-0.4.7-20260413.mkp"
 # Checkmk update 
 
 This plugin mointors the update status of your CMK sites and your CMK appliance firmware. The plugin reads it's data once a day form the Checkmk download page (**https://download.checkmk.com/stable_downloads.json**).
