@@ -43,6 +43,7 @@
 # 2026-03-24: fixed crash params.get('skip_no_download_url')
 # 2026-04-07: fixed crash if option skip_no_download_url is not set
 # 2026-04-13: fixed crash if cmk_version is empty
+# 2026-04-14: fixed missing Checkmk version in HW/SW inventory (ie. cmk2.4.0p19/trixie)
 
 # ######################################################################################################################
 # Known issues -> resolved :-)
@@ -138,9 +139,11 @@ def _get_dat_from_checkmk(
     match params_proxy:
         case ("cmk_postprocessed", "stored_proxy", str()):
             http_proxies = get_global_http_proxies()
-            if proxy_url := http_proxies.get(params_proxy[2], {}).get('proxy_url'):  # cmk 2.3/2.4 'proxy_url': 'http://your.proxy.server:3128'
+            if proxy_url := http_proxies.get(params_proxy[2], {}).get(
+                    'proxy_url'):  # cmk 2.3/2.4 'proxy_url': 'http://your.proxy.server:3128'
                 proxies = {'https': proxy_url, 'http': proxy_url}
-            elif proxy_config := http_proxies.get(params_proxy[2], {}).get('proxy_config'):  # cmk 2.5 'proxy_config': {'port': 3128, 'proxy_server_name': 'your.proxy.server', 'scheme': 'http'}
+            elif proxy_config := http_proxies.get(params_proxy[2], {}).get(
+                    'proxy_config'):  # cmk 2.5 'proxy_config': {'port': 3128, 'proxy_server_name': 'your.proxy.server', 'scheme': 'http'}
                 proxy_url = f'{proxy_config["scheme"]}://{proxy_config["proxy_server_name"]}:{proxy_config["port"]}'
                 proxies = {'https': proxy_url, 'http': proxy_url}
             else:
@@ -261,16 +264,24 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         )
         return
 
-    cmk_update_data = _get_cmk_update_data(
-        timeout=params.connection_settings.timeout,
-        cache_time=params.connection_settings.cache_time,
-        proxy=params.connection_settings.proxy,
-    )
+    if not site['used_version']:
+        yield Result(
+            state=State.WARN,
+            summary='Checkmk version not found in (HW/SW-inventory) data',
+            details='Checkmk version not found in data. Check: HW/SW-Inventory -> Software -> Applications -> Checkmk -> Checkmk Sites',
+        )
+        return
 
     used_version = site['used_version'].split('.')
     checkmk_version = '.'.join(used_version[:-1])
     installed_patch_level = _get_patch_level(checkmk_version)
     edition = used_version[-1]
+
+    cmk_update_data = _get_cmk_update_data(
+        timeout=params.connection_settings.timeout,
+        cache_time=params.connection_settings.cache_time,
+        proxy=params.connection_settings.proxy,
+    )
 
     if not docker:
         cmk_code = _get_cmk_code(section_lnx_distro)
@@ -362,7 +373,7 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
     if re.match(r'\d\.\d\.\d-\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build (i.e. "2.5.0-2026.03.04")
         yield Result(state=State.OK, summary='This is a daily build of CMK')
     else:
-        cmk_base_version = checkmk_version[:5] # works only as long as there are only single digit versions
+        cmk_base_version = checkmk_version[:5]  # works only as long as there are only single digit versions
         # get release information from cmk_update_data for cmk base version
         release_info = cmk_update_data['checkmk'].get(cmk_base_version)
         if release_info:
@@ -469,7 +480,6 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
                    f'Branch: {release_class}, '
                    f'URL: {url}',
         )
-
 
 
 check_plugin_checkmk_update = CheckPlugin(
