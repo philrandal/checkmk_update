@@ -43,7 +43,7 @@
 # 2026-03-24: fixed crash params.get('skip_no_download_url')
 # 2026-04-07: fixed crash if option skip_no_download_url is not set
 # 2026-04-13: fixed crash if cmk_version is empty
-# 2026-04-14: fixed missing Checkmk version in HW/SW inventory (ie. cmk2.4.0p19/trixie)
+# 2026-04-17: clarify output for download URLs
 
 # ######################################################################################################################
 # Known issues -> resolved :-)
@@ -268,7 +268,8 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         yield Result(
             state=State.WARN,
             summary='Checkmk version not found in (HW/SW-inventory) data',
-            details='Checkmk version not found in data. Check: HW/SW-Inventory -> Software -> Applications -> Checkmk -> Checkmk Sites',
+            details='Checkmk version not found in data. Check: '
+                    'HW/SW-Inventory -> Software -> Applications -> Checkmk -> Checkmk Sites -> Version',
         )
         return
 
@@ -443,7 +444,10 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
             yield Result(state=State.OK, notice=message)
 
     # output available releases
-    yield Result(state=State.OK, notice='\nAvailable CMK releases:')
+    if  params.skip_no_download_url:
+        yield Result(state=State.OK, notice=f'\nAvailable Checkmk releases for {section_lnx_distro.get("name")}:')
+    else:
+        yield Result(state=State.OK, notice='\nAvailable Checkmk releases:')
     for branch in cmk_update_data['checkmk'].keys():
         latest_version = cmk_update_data['checkmk'][branch]['version']
         release_class = cmk_update_data['checkmk'][branch]["class"]
