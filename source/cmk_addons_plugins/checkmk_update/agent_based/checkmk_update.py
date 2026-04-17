@@ -445,7 +445,7 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
 
     # output available releases
     if  params.skip_no_download_url:
-        yield Result(state=State.OK, notice=f'\nAvailable Checkmk releases for {section_lnx_distro.get("name")}:')
+        yield Result(state=State.OK, notice=f'\nLatest Checkmk releases for {section_lnx_distro.get("name")}:')
     else:
         yield Result(state=State.OK, notice='\nAvailable Checkmk releases:')
     for branch in cmk_update_data['checkmk'].keys():
