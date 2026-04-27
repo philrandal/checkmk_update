@@ -61,7 +61,7 @@ def migrate_to_connection_settings(value: object) -> object:
         return value
     if not (keys := value.keys()):  # not configured
         return value
-    if 'connection_settings' in keys or 'update_states' in keys:  # already migrated
+    if 'connection_settings' in keys or 'update_states' in keys or 'skip_no_download_url' in keys:  # already migrated
         return value
 
     migrated_value = {}

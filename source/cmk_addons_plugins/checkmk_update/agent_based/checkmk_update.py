@@ -44,6 +44,7 @@
 # 2026-04-07: fixed crash if option skip_no_download_url is not set
 # 2026-04-13: fixed crash if cmk_version is empty
 # 2026-04-17: clarify output for download URLs
+# 2026-04-25: fixed: don't prefer a beta release over an non beta release (ie: 2.5.0 versus 2.5.0b4)
 
 # ######################################################################################################################
 # Known issues -> resolved :-)
@@ -226,9 +227,12 @@ def _get_cmk_code(lnx_distro: Mapping[str, str]) -> str | None:
     return None
 
 
-def _get_patch_level(cmk_version: str) -> int | None:
-    if cmk_version:
-        return int(cmk_version.split('.')[-1].split('b')[-1].split('i')[-1].split('p')[-1])
+def _get_patch_level(patch_raw: str) -> (int, str):
+    if patch_raw.isdigit():
+        patch_raw = f'{patch_raw}p0'
+    if patch := re.match(r'(\d+)([pbi])(\d+)', patch_raw):
+        return int(patch.group(3)), patch.group(2)
+    return None, None
 
 
 def discovery_checkmk_update(section_lnx_distro, section_omd_info, section_ps) -> DiscoveryResult:
@@ -273,10 +277,10 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         )
         return
 
-    used_version = site['used_version'].split('.')
-    checkmk_version = '.'.join(used_version[:-1])
-    installed_patch_level = _get_patch_level(checkmk_version)
-    edition = used_version[-1]
+    major, minor, patch, edition = site['used_version'].split('.')
+    # major, minor, patch, edition = '2.5.0.pro'.split('.')
+    checkmk_version = f'{major}.{minor}.{patch}'
+    patch_level, train = _get_patch_level(patch)
 
     cmk_update_data = _get_cmk_update_data(
         timeout=params.connection_settings.timeout,
@@ -303,6 +307,13 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         'ultimate': 'Checkmk Ultimate',
         'ultimatemt': 'Checkmk Ultimate with Multi - Tenancy',
         'cloud': 'Checkmk Cloud',
+    }
+
+    download_editions = {
+        'community': 'cre',
+        'pro': 'cee',
+        'ultimate': 'cme',
+        'cloud': 'cce',
     }
 
     classes = {
@@ -364,10 +375,10 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
             summary=f'OS: {section_lnx_distro.get("name")} on Docker',
         )
 
-    if installed_patch_level is not None:
+    if patch_level is not None:
         yield Metric(
             name='installed_patch_level',
-            value=installed_patch_level,
+            value=patch_level,
             boundaries=(0, None),
         )
 
@@ -382,16 +393,20 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
                 state=State.OK,
                 summary=f'Branch: {release_info["class"]}',
             )
-            if checkmk_version != release_info['version']:
-                yield Result(
-                    state=State(params.update_states.state_not_latest_base),
-                    notice=f'Update available: {release_info["version"]}',
-                )
-            else:
+            if checkmk_version == release_info['version']:
                 yield Result(
                     state=State.OK,
                     notice='No update for this release available',
                 )
+            else:
+                release_major, release_minor, release_patch = release_info['version'].split('.')
+                release_patch_level, release_train = _get_patch_level(release_patch)
+                if train == release_train:
+                    yield Result(
+                        state=State(params.update_states.state_not_latest_base),
+                        notice=f'Update available: {release_info["version"]}',
+                    )
+
             if release_info['class'] != 'stable':
                 yield Result(
                     state=State(params.update_states.state_not_on_stable),
@@ -444,10 +459,11 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
             yield Result(state=State.OK, notice=message)
 
     # output available releases
-    if  params.skip_no_download_url:
+    if params.skip_no_download_url:
         yield Result(state=State.OK, notice=f'\nLatest Checkmk releases for {section_lnx_distro.get("name")}:')
     else:
         yield Result(state=State.OK, notice='\nAvailable Checkmk releases:')
+
     for branch in cmk_update_data['checkmk'].keys():
         latest_version = cmk_update_data['checkmk'][branch]['version']
         release_class = cmk_update_data['checkmk'][branch]["class"]
@@ -455,16 +471,19 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         release_date = time.strftime('%Y-%m-%d', time.strptime(time.ctime(release_date)))
 
         # add a little patch history
+        latest_major, latest_minor, latest_patch = latest_version.split('.')
+        latest_patch_level, latest_train = _get_patch_level(latest_patch)
         if latest_version:
             yield Metric(
-                value=_get_patch_level(latest_version),
+                value=latest_patch_level,
                 name=f'cmk_branch_{branch.replace(".", "_")}',
                 boundaries=(0, None),
             )
 
         try:
-            file = cmk_update_data['checkmk'][branch]['editions'][edition][
-                cmk_code.lower()][0]
+            file = cmk_update_data['checkmk'][branch]['editions'][
+                download_editions.get(edition, edition)
+            ][cmk_code.lower()][0]
         except (KeyError, AttributeError):
             file = None
 
