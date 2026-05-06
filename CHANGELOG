@@ -38,3 +38,5 @@
 2026-04-14: fixed missing Checkmk version in HW/SW inventory (ie. cmk2.4.0p19/trixie)
 2026-04-17: clarify output for download URLs
 2026-04-25: fixed: don't prefer a beta release over an non beta release (ie: 2.5.0 versus 2.5.0b4)
+2026-05-06: fixed: crash if "editions" in json is not dict but list (bug un download data?)
+            bump max. Checkmk version to 2.6.0b1

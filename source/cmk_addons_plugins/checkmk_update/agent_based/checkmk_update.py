@@ -45,6 +45,8 @@
 # 2026-04-13: fixed crash if cmk_version is empty
 # 2026-04-17: clarify output for download URLs
 # 2026-04-25: fixed: don't prefer a beta release over an non beta release (ie: 2.5.0 versus 2.5.0b4)
+# 2026-05-06: fixed: crash if "editions" in json is not dict but list (bug un download data?)
+#             bump max. Checkmk version to 2.6.0b1
 
 # ######################################################################################################################
 # Known issues -> resolved :-)
@@ -484,7 +486,7 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
             file = cmk_update_data['checkmk'][branch]['editions'][
                 download_editions.get(edition, edition)
             ][cmk_code.lower()][0]
-        except (KeyError, AttributeError):
+        except (TypeError, KeyError, AttributeError):
             file = None
 
         if file:
