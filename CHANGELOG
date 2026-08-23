@@ -46,4 +46,4 @@
 2026-08-19: option to configure check state if OS inventory section is missing
 2026-08-20: create release history, even if OS data is missing
             bump max. Checkmk version to 3.1.0b1
-
+2026-08-23: fixed crash in fetching download url if section_lnx_distro not available

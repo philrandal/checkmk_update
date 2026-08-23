@@ -52,7 +52,8 @@
 #             added upper levels for patches behind/daily to old
 # 2026-08-19: option to configure check state if OS inventory section is missing
 # 2026-08-20: create release history, even if OS data is missing
-
+#             bump max. Checkmk version to 3.1.0b1
+# 2026-08-23: fixed crash in fetching download url if section_lnx_distro not available
 
 # ######################################################################################################################
 # Known issues -> resolved :-)
@@ -73,7 +74,7 @@ import requests
 
 from collections.abc import Mapping
 from pydantic import BaseModel
-from typing import Literal, Tuple
+from typing import Literal
 
 from cmk.agent_based.v2 import (
     CheckPlugin,
@@ -547,29 +548,30 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
                 boundaries=(0, None),
             )
 
-        try:
-            file = cmk_update_data['checkmk'][branch]['editions'][
-                download_editions.get(edition, edition)
-            ][cmk_code.lower()][0]
-        except (TypeError, KeyError, AttributeError, UnboundLocalError):
-            file = None
+        if section_lnx_distro:
+            try:
+                file = cmk_update_data['checkmk'][branch]['editions'][
+                    download_editions.get(edition, edition)
+                ][cmk_code.lower()][0]
+            except (TypeError, KeyError, AttributeError, UnboundLocalError):
+                file = None
 
-        if file:
-            url = f'{download_url_base}/{latest_version}/{file}'
-        else:
-            if params.skip_no_download_url:
-                continue
-            _message = 'no download available for your edition/distribution/branch'
-            url = f'{_message} ({edition.upper()}/{cmk_code}/{release_class}).'
+            if file:
+                url = f'{download_url_base}/{latest_version}/{file}'
+            else:
+                if params.skip_no_download_url:
+                    continue
+                _message = 'no download available for your edition/distribution/branch'
+                url = f'{_message} ({edition.upper()}/{cmk_code}/{release_class}).'
 
-        yield Result(
-            state=State.OK,
-            notice=f'{branch}: '
-                   f'Latest version: {latest_version}, '
-                   f'Release date: {release_date}, '
-                   f'Branch: {release_class}, '
-                   f'URL: {url}',
-        )
+            yield Result(
+                state=State.OK,
+                notice=f'{branch}: '
+                       f'Latest version: {latest_version}, '
+                       f'Release date: {release_date}, '
+                       f'Branch: {release_class}, '
+                       f'URL: {url}',
+            )
 
 
 check_plugin_checkmk_update = CheckPlugin(
