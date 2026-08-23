@@ -47,6 +47,12 @@
 # 2026-04-25: fixed: don't prefer a beta release over an non beta release (ie: 2.5.0 versus 2.5.0b4)
 # 2026-05-06: fixed: crash if "editions" in json is not dict but list (bug un download data?)
 #             bump max. Checkmk version to 2.6.0b1
+# 2026-08-13: fixed: translation of checkmk editions (pre community/pro/ultimate/ultimateme)
+# 2026-08-18: fixed/reworked handling of daily builds
+#             added upper levels for patches behind/daily to old
+# 2026-08-19: option to configure check state if OS inventory section is missing
+# 2026-08-20: create release history, even if OS data is missing
+
 
 # ######################################################################################################################
 # Known issues -> resolved :-)
@@ -67,7 +73,7 @@ import requests
 
 from collections.abc import Mapping
 from pydantic import BaseModel
-from typing import Literal
+from typing import Literal, Tuple
 
 from cmk.agent_based.v2 import (
     CheckPlugin,
@@ -77,6 +83,7 @@ from cmk.agent_based.v2 import (
     Result,
     Service,
     State,
+    check_levels,
 )
 
 from cmk.utils.paths import tmp_dir
@@ -95,6 +102,10 @@ PROXY = tuple[
     Literal['environment_proxy', 'no_proxy', 'stored_proxy', 'explicit_proxy'],
     str,
 ]
+SIMPLE_LEVELS = (
+        tuple[Literal['fixed'], tuple[int | float, int | float]] |
+        tuple[Literal['no_levels'], None]
+)
 
 
 class ConnectionSettings(BaseModel):
@@ -111,13 +122,15 @@ class UpdateStates(BaseModel):
     state_not_on_stable: int | None = 1
     state_on_unsupported: int | None = 2
     state_unknown: int | None = 1
+    levels_age_daily: SIMPLE_LEVELS | None = ('fixed', (10 * 86400, 20 * 86400))
+    levels_versions_behind: SIMPLE_LEVELS | None =  ('fixed', (1, 5))
 
 
 class Params(BaseModel):
     connection_settings: ConnectionSettings | None = ConnectionSettings()
     update_states: UpdateStates | None = UpdateStates()
     skip_no_download_url: bool | None = False
-    # host_name: str | None
+    state_no_os_data: int | None = 1
 
 
 # from rule_set in agent_based check
@@ -132,7 +145,7 @@ class Params(BaseModel):
 # 'proxy': URLProxy(type='url_proxy', url='http://explicit.proxy8080')
 
 
-def _get_dat_from_checkmk(
+def _get_data_from_checkmk(
         cache_file: str,
         timeout: int,
         params_proxy: PROXY | None,
@@ -191,9 +204,9 @@ def _get_cmk_update_data(
             with open(cache_file, 'r', encoding='utf-8') as cachefile:
                 page_source = cachefile.read()
         else:
-            page_source = _get_dat_from_checkmk(cache_file, timeout, proxy)
+            page_source = _get_data_from_checkmk(cache_file, timeout, proxy)
     else:
-        page_source = _get_dat_from_checkmk(cache_file, timeout, proxy)
+        page_source = _get_data_from_checkmk(cache_file, timeout, proxy)
 
     try:
         return json.loads(page_source)
@@ -202,6 +215,8 @@ def _get_cmk_update_data(
 
 
 def _get_cmk_code(lnx_distro: Mapping[str, str]) -> str | None:
+    if not lnx_distro:
+        return 'unknown'
     if cmk_code := lnx_distro.get('cmk_code', lnx_distro.get('code_name')):
         return cmk_code
 
@@ -236,6 +251,26 @@ def _get_patch_level(patch_raw: str) -> (int, str):
         return int(patch.group(3)), patch.group(2)
     return None, None
 
+def _yield_edition(edition: str):
+    editions = {
+        'cre': 'Checkmk Raw Edition',
+        'cfe': 'Checkmk Enterprise Free Edition',
+        'cee': 'Checkmk Enterprise Standard Edition',
+        'cme': 'Checkmk Enterprise Managed Services Edition',
+        'cce': 'Checkmk Cloud Edition',
+        # cmk 2.5 and up (names are also changed with cmk 2.3.0p45 and 2.4.0p24)
+        'community': 'Checkmk Community',
+        'pro': 'Checkmk Pro',
+        'ultimate': 'Checkmk Ultimate',
+        'ultimatemt': 'Checkmk Ultimate with Multi - Tenancy',
+        'cloud': 'Checkmk Cloud',
+    }
+
+    yield Result(
+        state=State.OK,
+        summary=f'Edition: {edition.upper()}',
+        details=f'Edition: {editions.get(edition, edition)}',
+    )
 
 def discovery_checkmk_update(section_lnx_distro, section_omd_info, section_ps) -> DiscoveryResult:
     if section_omd_info is not None:
@@ -253,14 +288,6 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
                 docker = True
                 break
 
-    if not section_lnx_distro:
-        yield Result(
-            state=State.WARN,
-            summary='Operating System data not found. Check if HW/SW inventory is active and the "Operating System" '
-                    'data are present in the inventory. (The mk_inventory.linux agent plugin needs to be deployed).'
-        )
-        return
-
     try:
         site = section_omd_info.get('sites')[item]
     except KeyError:
@@ -270,7 +297,7 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         )
         return
 
-    if not site['used_version']:
+    if not (used_version := site.get('used_version')):
         yield Result(
             state=State.WARN,
             summary='Checkmk version not found in (HW/SW-inventory) data',
@@ -279,10 +306,27 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         )
         return
 
-    major, minor, patch, edition = site['used_version'].split('.')
-    # major, minor, patch, edition = '2.5.0.pro'.split('.')
-    checkmk_version = f'{major}.{minor}.{patch}'
-    patch_level, train = _get_patch_level(patch)
+    # major, minor, patch, edition = '2.5.0p11.pro'  -> normal version
+    # version, date, edition = '3.0.0-2026.07.21.ultimate' -> daily build
+
+    # for testing
+    # raw_version, edition ='3.0.0-2026.07.21.ultimate'.rsplit('.', 1)
+    # raw_version, edition = '3.5.0p35.pro'.rsplit('.', 1)
+    # raw_version, edition = '2.5.0p12.ultimate'.rsplit('.', 1)
+    # raw_version, edition = '2.4.0p35.cce'.rsplit('.', 1)
+    # raw_version, edition = '1.6.0p2.cce'.rsplit('.', 1)
+    # raw_version, edition = '1.5.0p35.cce'.rsplit('.', 1)
+
+    raw_version, edition = used_version.rsplit('.', 1)
+
+    if not '-' in raw_version:
+        major, minor, patch = raw_version.split('.')
+        checkmk_version = f'{major}.{minor}.{patch}'
+        patch_level, train = _get_patch_level(patch)
+    else:
+        checkmk_version, daily_date = raw_version.split('-')
+        train = 'daily'
+        patch_level = None
 
     cmk_update_data = _get_cmk_update_data(
         timeout=params.connection_settings.timeout,
@@ -290,32 +334,17 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         proxy=params.connection_settings.proxy,
     )
 
-    if not docker:
-        cmk_code = _get_cmk_code(section_lnx_distro)
-    else:
-        cmk_code = 'docker'
-
     download_url_base = 'https://download.checkmk.com/checkmk'
 
-    editions = {
-        'cre': 'Checkmk Raw Edition',
-        'cfe': 'Checkmk Enterprise Free Edition',
-        'cee': 'Checkmk Enterprise Standard Edition',
-        'cme': 'Checkmk Enterprise Managed Services Edition',
-        'cce': 'Checkmk Cloud Edition',
-        # cmk 2.5 and up (names are also changed with cmk 2.3.0p45 and 2.4.0p24)
-        'community': 'Checkmk Community',
-        'pro': 'Checkmk Pro',
-        'ultimate': 'Checkmk Ultimate',
-        'ultimatemt': 'Checkmk Ultimate with Multi - Tenancy',
-        'cloud': 'Checkmk Cloud',
-    }
-
     download_editions = {
-        'community': 'cre',
-        'pro': 'cee',
-        'ultimate': 'cme',
-        'cloud': 'cce',
+        # 'community': 'cre',
+        # 'pro': 'cee',
+        # 'ultimate': 'cme',
+        # 'cloud': 'cce',
+        'cre': 'community',
+        'cee': 'pro',
+        'cme': 'ultimateme',
+        'cce': 'ultimate',
     }
 
     classes = {
@@ -358,43 +387,32 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
                 _class['latest_branch']]['version']
 
     latest_stable = classes['stable']['latest_version']
-    # latest_old_stable = classes['oldstable']['latest_version']
+    latest_branch = classes['stable']['latest_branch']
 
-    yield Result(
-        state=State.OK,
-        summary=f'{edition.upper()} {checkmk_version}',
-        details=f'{editions.get(edition, edition)} {checkmk_version}',
-    )
-
-    if not docker:
-        yield Result(
-            state=State.OK,
-            summary=f'OS: {section_lnx_distro.get("name")}',
+    if train == 'daily':
+        yield Result(state=State.OK, summary=f'Version: {raw_version} (daily build))')
+        yield from _yield_edition(edition)
+        yield from check_levels(
+            value=int((time.time() - time.mktime(time.strptime(daily_date, '%Y.%m.%d')))),
+            label='Build age (days)',
+            levels_upper=params.update_states.levels_age_daily,
+            render_func=lambda x: int(x / 86400),
         )
     else:
-        yield Result(
-            state=State.OK,
-            summary=f'OS: {section_lnx_distro.get("name")} on Docker',
-        )
+        yield Result(state=State.OK, summary=f'Version: {raw_version}')
+        yield from _yield_edition(edition)
 
-    if patch_level is not None:
-        yield Metric(
-            name='installed_patch_level',
-            value=patch_level,
-            boundaries=(0, None),
-        )
+        if patch_level is not None:
+            yield Metric(
+                name='installed_patch_level',
+                value=patch_level,
+                boundaries=(0, None),
+            )
 
-    if re.match(r'\d\.\d\.\d-\d\d\d\d\.\d\d\.\d\d$', checkmk_version):  # not daily build (i.e. "2.5.0-2026.03.04")
-        yield Result(state=State.OK, summary='This is a daily build of CMK')
-    else:
         cmk_base_version = checkmk_version[:5]  # works only as long as there are only single digit versions
         # get release information from cmk_update_data for cmk base version
         release_info = cmk_update_data['checkmk'].get(cmk_base_version)
         if release_info:
-            yield Result(
-                state=State.OK,
-                summary=f'Branch: {release_info["class"]}',
-            )
             if checkmk_version == release_info['version']:
                 yield Result(
                     state=State.OK,
@@ -405,66 +423,113 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
                 release_patch_level, release_train = _get_patch_level(release_patch)
                 if train == release_train:
                     yield Result(
-                        state=State(params.update_states.state_not_latest_base),
+                        # state=State(params.update_states.state_not_latest_base),
+                        state=State.OK,
                         notice=f'Update available: {release_info["version"]}',
                     )
+                    version_behind = int(release_patch_level) - int(patch_level)
+                    if version_behind > 0:
+                        yield from check_levels(
+                            value=version_behind,
+                            label='# of (patch) versions behind',
+                            render_func=lambda x: int(x),
+                            levels_upper=params.update_states.levels_versions_behind,
+                        )
 
-            if release_info['class'] != 'stable':
+            if release_info['class'] == 'stable':
+                yield Result(
+                    state=State.OK,
+                    summary=f'Branch: {release_info["class"]}',
+                )
+            else:
                 yield Result(
                     state=State(params.update_states.state_not_on_stable),
+                    summary=f'Branch: {release_info["class"]}',
+                )
+            # if raw_version == latest_stable:
+            if cmk_base_version == latest_branch:
+                yield Result(
+                    state=State.OK,
+                    summary=f'Latest stable: {latest_stable}',
+                )
+            else:
+                yield Result(
+                    state=State(params.update_states.state_not_latest_base),
                     summary=f'Latest stable: {latest_stable}',
                 )
         else:
             yield Result(
                 state=State(params.update_states.state_on_unsupported),
-                notice=f'Version {checkmk_version} not supported/not found in update info',
+                notice=f'Version {checkmk_version} not supported/not found in update info. Update to a supported version!',
             )
 
-    cfw_latest = '0.0.0'
-    cfw_current_latest = '0.0.0'
-    if section_lnx_distro['name'].lower().startswith('checkmk appliance'):
-        cfw_current = section_lnx_distro['version']
-        cfw_current_main = '.'.join(cfw_current.split('.')[:2])
-        for version in cmk_update_data['appliance']:
-            # add a little appliance patch history
-            yield Metric(
-                value=int(version.split('.')[-1]),
-                name=f'appliance_{"_".join(version.split(".")[:2])}',
-                boundaries=(0, None),
-            )
-            if version.startswith(cfw_current_main):
-                cfw_current_latest = version
-            if version > cfw_latest:
-                cfw_latest = version
-        if cfw_current_latest == '0.0.0':
-            yield Result(
-                state=State(params.update_states.state_cfw_unsupported),
-                notice=f'Appliance firmware {cfw_current} is unsupported',
-            )
-        elif cfw_current == cfw_current_latest:
+    if not section_lnx_distro:
+        yield Result(
+            state=State(params.state_no_os_data),
+            summary='OS data not found (see details)',
+            details='Operating System data not found.\n'
+                    'Check if HW/SW inventory is active and the "Operating System" data are present in the inventory'
+                    '(The mk_inventory.linux agent plugin needs to be deployed).'
+        )
+    else:
+        if not docker:
+            cmk_code = _get_cmk_code(section_lnx_distro)
             yield Result(
                 state=State.OK,
-                notice=f'Appliance firmware in line with version {cfw_current_main}',
+                summary=f'OS: {section_lnx_distro.get("name")}',
             )
         else:
+            cmk_code = 'docker'
             yield Result(
-                state=State(params.update_states.state_cfw_not_latest_base),
-                notice=f'Appliance firmware update available {cfw_current_latest}',
+                state=State.OK,
+                summary=f'OS: {section_lnx_distro.get("name")} on Docker',
             )
-        message = f'Latest appliance firmware {cfw_latest}'
-        if cfw_current_latest < cfw_latest:
-            yield Result(
-                state=State(params.update_states.state_cfw_not_latest),
-                notice=message,
-            )
-        else:
-            yield Result(state=State.OK, notice=message)
 
-    # output available releases
-    if params.skip_no_download_url:
-        yield Result(state=State.OK, notice=f'\nLatest Checkmk releases for {section_lnx_distro.get("name")}:')
-    else:
-        yield Result(state=State.OK, notice='\nAvailable Checkmk releases:')
+        cfw_latest = '0.0.0'
+        cfw_current_latest = '0.0.0'
+        if section_lnx_distro.get('name', '').lower().startswith('checkmk appliance'):
+            cfw_current = section_lnx_distro['version']
+            cfw_current_main = '.'.join(cfw_current.split('.')[:2])
+            for version in cmk_update_data['appliance']:
+                # add a little appliance patch history
+                yield Metric(
+                    value=int(version.split('.')[-1]),
+                    name=f'appliance_{"_".join(version.split(".")[:2])}',
+                    boundaries=(0, None),
+                )
+                if version.startswith(cfw_current_main):
+                    cfw_current_latest = version
+                if version > cfw_latest:
+                    cfw_latest = version
+            if cfw_current_latest == '0.0.0':
+                yield Result(
+                    state=State(params.update_states.state_cfw_unsupported),
+                    notice=f'Appliance firmware {cfw_current} is unsupported',
+                )
+            elif cfw_current == cfw_current_latest:
+                yield Result(
+                    state=State.OK,
+                    notice=f'Appliance firmware in line with version {cfw_current_main}',
+                )
+            else:
+                yield Result(
+                    state=State(params.update_states.state_cfw_not_latest_base),
+                    notice=f'Appliance firmware update available {cfw_current_latest}',
+                )
+            message = f'Latest appliance firmware {cfw_latest}'
+            if cfw_current_latest < cfw_latest:
+                yield Result(
+                    state=State(params.update_states.state_cfw_not_latest),
+                    notice=message,
+                )
+            else:
+                yield Result(state=State.OK, notice=message)
+
+        # output available releases
+        if params.skip_no_download_url:
+            yield Result(state=State.OK, notice=f'\nLatest Checkmk releases for {section_lnx_distro.get("name")}:')
+        else:
+            yield Result(state=State.OK, notice='\nAvailable Checkmk releases:')
 
     for branch in cmk_update_data['checkmk'].keys():
         latest_version = cmk_update_data['checkmk'][branch]['version']
@@ -486,7 +551,7 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
             file = cmk_update_data['checkmk'][branch]['editions'][
                 download_editions.get(edition, edition)
             ][cmk_code.lower()][0]
-        except (TypeError, KeyError, AttributeError):
+        except (TypeError, KeyError, AttributeError, UnboundLocalError):
             file = None
 
         if file:
@@ -514,10 +579,9 @@ check_plugin_checkmk_update = CheckPlugin(
     discovery_function=discovery_checkmk_update,
     check_function=check_checkmk_update,
     check_default_parameters={
-        # # Don't try this hack at home, we (the Checkmk Dev team) are trained professionals.
-        # # This next entry will be postprocessed by the backend and return the Checkmk host object name.
-        # # This is not official and can vanish with every Checkmk update :-(
-        # 'host_name': ('cmk_postprocessed', 'host_name', None),
+        'connection_settings': {
+            'cache_time': 86400
+        },
     },
     check_ruleset_name='checkmk_update',
 )
