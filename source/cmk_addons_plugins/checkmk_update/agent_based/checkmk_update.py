@@ -54,6 +54,9 @@
 # 2026-08-20: create release history, even if OS data is missing
 #             bump max. Checkmk version to 3.1.0b1
 # 2026-08-23: fixed crash in fetching download url if section_lnx_distro not available
+# 2026-08-28: fixed: detection of latest base version
+#             renamed branch in to class (sable/oldsable)
+#             show latest sable on unsupported versions
 
 # ######################################################################################################################
 # Known issues -> resolved :-)
@@ -66,14 +69,20 @@
 # sample lnx_distro section
 # {'name': 'Debian GNU/Linux 12 (bookworm)', 'version': '12', 'code_name': 'Bookworm', 'vendor': 'Debian'}
 
-import json
-import os
-import re
-import time
-import requests
-
 from collections.abc import Mapping
+from json import loads, JSONDecodeError
+from os import path as os_path
+from packaging.version import Version
 from pydantic import BaseModel
+from re import match as re_match
+from requests import get as requests_get
+from time import (
+    ctime,
+    mktime,
+    strftime,
+    strptime,
+    time as now
+)
 from typing import Literal
 
 from cmk.agent_based.v2 import (
@@ -124,7 +133,7 @@ class UpdateStates(BaseModel):
     state_on_unsupported: int | None = 2
     state_unknown: int | None = 1
     levels_age_daily: SIMPLE_LEVELS | None = ('fixed', (10 * 86400, 20 * 86400))
-    levels_versions_behind: SIMPLE_LEVELS | None =  ('fixed', (1, 5))
+    levels_versions_behind: SIMPLE_LEVELS | None = ('fixed', (1, 5))
 
 
 class Params(BaseModel):
@@ -175,7 +184,7 @@ def _get_data_from_checkmk(
             proxies = {}
 
     # ToDo: add error handling (i.e.: ConnectionError)
-    response = requests.get(
+    response = requests_get(
         url=url,
         timeout=timeout,
         proxies=proxies,
@@ -194,13 +203,11 @@ def _get_cmk_update_data(
         cache_time: int,
         proxy: PROXY | None,
 ) -> dict[str, object] | None:
-    cache_file = os.path.join(tmp_dir, 'cache/cmk_downloads.json')
-    # cache_file = omd_root + '/var/check_mk/cmk_downloads'
-    # page_source = '{}'
+    cache_file = os_path.join(tmp_dir, 'cache/cmk_downloads.json')
 
-    if os.path.isfile(cache_file):
-        now_time = int(time.time())
-        modify_time = int(os.path.getmtime(cache_file))
+    if os_path.isfile(cache_file):
+        now_time = int(now())
+        modify_time = int(os_path.getmtime(cache_file))
         if (now_time - modify_time) < cache_time:
             with open(cache_file, 'r', encoding='utf-8') as cachefile:
                 page_source = cachefile.read()
@@ -210,8 +217,8 @@ def _get_cmk_update_data(
         page_source = _get_data_from_checkmk(cache_file, timeout, proxy)
 
     try:
-        return json.loads(page_source)
-    except json.JSONDecodeError:
+        return loads(page_source)
+    except JSONDecodeError:
         return {}
 
 
@@ -248,9 +255,10 @@ def _get_cmk_code(lnx_distro: Mapping[str, str]) -> str | None:
 def _get_patch_level(patch_raw: str) -> (int, str):
     if patch_raw.isdigit():
         patch_raw = f'{patch_raw}p0'
-    if patch := re.match(r'(\d+)([pbi])(\d+)', patch_raw):
+    if patch := re_match(r'(\d+)([pbi])(\d+)', patch_raw):
         return int(patch.group(3)), patch.group(2)
     return None, None
+
 
 def _yield_edition(edition: str):
     editions = {
@@ -272,6 +280,7 @@ def _yield_edition(edition: str):
         summary=f'Edition: {edition.upper()}',
         details=f'Edition: {editions.get(edition, edition)}',
     )
+
 
 def discovery_checkmk_update(section_lnx_distro, section_omd_info, section_ps) -> DiscoveryResult:
     if section_omd_info is not None:
@@ -375,9 +384,7 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         _class = cmk_update_data['checkmk'][branch]['class']
         classes[_class]['branches'].append(branch)
         if classes[_class]['latest_branch']:
-            if cmk_update_data['checkmk'][branch][
-                'release_date'] > cmk_update_data['checkmk'][
-                classes[_class]['latest_branch']]['release_date']:
+            if Version(branch) > Version(classes[_class]['latest_branch']):
                 classes[_class]['latest_branch'] = branch
         else:
             classes[_class]['latest_branch'] = branch
@@ -394,7 +401,7 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         yield Result(state=State.OK, summary=f'Version: {raw_version} (daily build))')
         yield from _yield_edition(edition)
         yield from check_levels(
-            value=int((time.time() - time.mktime(time.strptime(daily_date, '%Y.%m.%d')))),
+            value=int((now() - mktime(strptime(daily_date, '%Y.%m.%d')))),
             label='Build age (days)',
             levels_upper=params.update_states.levels_age_daily,
             render_func=lambda x: int(x / 86400),
@@ -410,58 +417,64 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
                 boundaries=(0, None),
             )
 
-        cmk_base_version = checkmk_version[:5]  # works only as long as there are only single digit versions
+        cmk_base_version = checkmk_version.partition('p')[0]
+        cmk_base_version = cmk_base_version.partition('b')[0]
+        cmk_base_version = cmk_base_version.partition('i')[0]
         # get release information from cmk_update_data for cmk base version
         release_info = cmk_update_data['checkmk'].get(cmk_base_version)
         if release_info:
             if checkmk_version == release_info['version']:
                 yield Result(
                     state=State.OK,
-                    notice='No update for this release available',
+                    notice='No update for this main version available',
                 )
             else:
                 release_major, release_minor, release_patch = release_info['version'].split('.')
                 release_patch_level, release_train = _get_patch_level(release_patch)
-                if train == release_train:
-                    yield Result(
-                        # state=State(params.update_states.state_not_latest_base),
-                        state=State.OK,
-                        notice=f'Update available: {release_info["version"]}',
-                    )
+                if train == release_train:  # (p)roduction or (b)eta or (i)novation
                     version_behind = int(release_patch_level) - int(patch_level)
                     if version_behind > 0:
+                        yield Result(
+                            state=State.OK,
+                            notice=f'Update available: {release_info["version"]}',
+                        )
                         yield from check_levels(
                             value=version_behind,
                             label='# of (patch) versions behind',
                             render_func=lambda x: int(x),
                             levels_upper=params.update_states.levels_versions_behind,
                         )
+                    elif version_behind < 0:
+                        yield Result(
+                            state=State.OK,
+                            notice=f'# of (patch) versions ahead: {abs(version_behind)}'
+                        )
 
             if release_info['class'] == 'stable':
                 yield Result(
                     state=State.OK,
-                    summary=f'Branch: {release_info["class"]}',
+                    summary=f'Class: {release_info["class"]}',
                 )
             else:
                 yield Result(
                     state=State(params.update_states.state_not_on_stable),
-                    summary=f'Branch: {release_info["class"]}',
-                )
-            # if raw_version == latest_stable:
-            if cmk_base_version == latest_branch:
-                yield Result(
-                    state=State.OK,
-                    summary=f'Latest stable: {latest_stable}',
-                )
-            else:
-                yield Result(
-                    state=State(params.update_states.state_not_latest_base),
-                    summary=f'Latest stable: {latest_stable}',
+                    summary=f'Class: {release_info["class"]}',
                 )
         else:
             yield Result(
                 state=State(params.update_states.state_on_unsupported),
                 notice=f'Version {checkmk_version} not supported/not found in update info. Update to a supported version!',
+            )
+
+        if cmk_base_version == latest_branch:
+            yield Result(
+                state=State.OK,
+                summary=f'Latest stable: {latest_stable}',
+            )
+        else:
+            yield Result(
+                state=State(params.update_states.state_not_latest_base),
+                summary=f'Latest stable: {latest_stable}',
             )
 
     if not section_lnx_distro:
@@ -536,7 +549,7 @@ def check_checkmk_update(item: str, params, section_lnx_distro, section_omd_info
         latest_version = cmk_update_data['checkmk'][branch]['version']
         release_class = cmk_update_data['checkmk'][branch]["class"]
         release_date = cmk_update_data['checkmk'][branch]["release_date"]
-        release_date = time.strftime('%Y-%m-%d', time.strptime(time.ctime(release_date)))
+        release_date = strftime('%Y-%m-%d', strptime(ctime(release_date)))
 
         # add a little patch history
         latest_major, latest_minor, latest_patch = latest_version.split('.')

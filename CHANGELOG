@@ -47,3 +47,6 @@
 2026-08-20: create release history, even if OS data is missing
             bump max. Checkmk version to 3.1.0b1
 2026-08-23: fixed crash in fetching download url if section_lnx_distro not available
+2026-08-28: fixed: detection of latest base version
+            renamed branch in to class (stable/oldsable)
+            show latest sable on unsupported versions
