@@ -1,4 +1,4 @@
-[PACKAGE]: https://%{gitlab_server}/%{project_path}/-/raw/master/mkp/checkmk_update-0.5.4-20260828.mkp
+[PACKAGE]: https://github.com/philrandal/checkmk_update/raw/master/mkp/checkmk_update-0.5.4-20260828.mkp
 # Checkmk update 
 
 This plugin mointors the update status of your CMK sites and your CMK appliance firmware. The plugin reads it's data once a day form the Checkmk download page (**https://download.checkmk.com/stable_downloads.json**).
